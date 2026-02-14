@@ -1,41 +1,29 @@
 
-export type AppStep = 'SETUP' | 'UPLOAD' | 'FRAME' | 'EDITOR';
+export type AppStep = 'MODE_SELECT' | 'SETUP' | 'UPLOAD' | 'FRAME' | 'TEXT' | 'EDITOR';
+export type StudioMode = 'PATTERN' | 'BOOK_COVER';
 
-export interface User {
+// AspectRatio defines the supported dimensions for generation
+export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
+
+// ImageSize defines the resolution tier for generation
+export type ImageSize = '1K' | '2K' | '4K';
+
+// PixelDensity defines the target grid resolution for the pixelation process
+export type PixelDensity = number;
+
+// StudioModel defines the available Gemini models as an enum for type safety
+export enum StudioModel {
+  FLASH = 'gemini-3-flash-preview',
+  PRO = 'gemini-3-pro-preview',
+}
+
+export interface TextLayer {
   id: string;
-  name: string;
-  profileImg: string;
-  isLoggedIn: boolean;
-}
-
-export interface Notice {
-  id: number;
-  title: string;
-  content: string;
-  date: string;
-  isRead: boolean;
-}
-
-export interface DesignPost {
-  id: number;
-  author: string;
-  authorId: string;
-  title: string;
-  designImg: string; // 픽셀 도안
-  inGameImg: string; // 게임 내 실제 사진
-  likes: number;
-  timestamp: number;
-}
-
-export interface RecordPost {
-  id: number;
-  author: string;
-  title: string;
-  description: string;
-  youtubeUrl: string;
-  price?: string;
-  likes: number;
-  timestamp: number;
+  text: string;
+  x: number; // percentage
+  y: number; // percentage
+  size: number;
+  color: string;
 }
 
 export interface ColorInfo {
@@ -52,16 +40,7 @@ export interface PixelData {
   palette: ColorInfo[];
 }
 
-export type AspectRatio = '1:1' | '3:4' | '4:3' | '9:16' | '16:9';
-export type ImageSize = '1K' | '2K' | '4K';
-export type PixelDensity = number;
-
-export enum StudioModel {
-  FLASH = 'gemini-2.5-flash-image',
-  PRO = 'gemini-3-pro-image-preview'
-}
-
-// Added GeneratedImage interface used by ArtCanvas and HistoryBar components
+// GeneratedImage represents the output of the generation and conversion process
 export interface GeneratedImage {
   id: string;
   url: string;
@@ -70,8 +49,8 @@ export interface GeneratedImage {
   config: {
     aspectRatio: AspectRatio;
     model: StudioModel;
-    imageSize?: ImageSize;
-    pixelDensity?: PixelDensity;
+    imageSize: ImageSize;
+    pixelDensity: PixelDensity;
   };
   palette?: ColorInfo[];
 }
