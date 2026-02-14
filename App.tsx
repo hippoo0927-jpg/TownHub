@@ -6,7 +6,7 @@ import JSZip from 'jszip';
 
 type MainView = 'HOME' | 'STUDIO' | 'DESIGN_FEED' | 'RECORD_SHOP';
 
-const PALETTE_GUIDE_IMG = "https://images.squarespace-cdn.com/content/v1/5f1b1322b62d29194291882d/1614761005727-8YJ9A8QG8K8G8G8G8G8G/palette_guide_placeholder.png"; 
+const PALETTE_GUIDE_IMG = "https://postfiles.pstatic.net/MjAyNjAyMTRfMjkx/MDAxNzcxMDU3NTk4NDUw.UdWMz036JirwSH3q0aunhh3BlUUk0fch-buODrROIJUg.2q5o0meMMuNoW3EVKQlQzxUQIx9kMrJbVZoMDILhGX0g.PNG/%EC%83%89%EC%BD%94%EB%93%9C_%EC%9D%BD%EB%8A%94%EB%B2%95.png?type=w966"; 
 
 const getContrastColor = (hex: string) => {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
