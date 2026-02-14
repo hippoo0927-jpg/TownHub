@@ -257,6 +257,15 @@ const App: React.FC = () => {
                              onMouseUp={()=>frameDragRef.current.isDragging=false}
                         >
                           <canvas ref={previewCanvasRef} width={canvasDim.w} height={canvasDim.h} className="w-full h-full pointer-events-none" style={{imageRendering:'pixelated'}} />
+                          
+                          {/* 가이드 레이어 (격자 무늬) */}
+                          <div className="absolute inset-0 pointer-events-none opacity-20" 
+                               style={{
+                                 backgroundImage: `linear-gradient(to right, #000 1px, transparent 1px), linear-gradient(to bottom, #000 1px, transparent 1px)`,
+                                 backgroundSize: `${100 / canvasDim.w}% ${100 / canvasDim.h}%`
+                               }}
+                          />
+                          
                           {step==='TEXT' && textLayers.map(l=>(
                             <div key={l.id} className="absolute cursor-move font-black whitespace-nowrap" style={{left:`${l.x}%`, top:`${l.y}%`, transform:'translate(-50%,-50%)', color:l.color, fontSize:`${l.size*2}px` }} 
                                  onMouseDown={e=>{e.stopPropagation(); setSelectedTextId(l.id);}} />
