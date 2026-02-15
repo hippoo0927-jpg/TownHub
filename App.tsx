@@ -525,6 +525,12 @@ const App: React.FC = () => {
                           ))}
                         </div>
                       </div>
+                    </div> {/* Palette 사이드바 끝 */}
+                  </div> 
+                )} {/* step === 'EDITOR' 끝 */}
+              </div> 
+            ) : ( 
+              /* activeView가 STUDIO가 아닐 때 (HOME, FEED 등) 보여줄 화면 */
               <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-pulse">
                  <div className="text-8xl">🚀</div>
                  <div className="font-black italic text-3xl text-slate-200 uppercase tracking-widest">{activeView} HUB 준비 중...</div>
