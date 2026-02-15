@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
-  const [splitSize, setSplitSize] = useState(25); // 기본 분할 크기를 25로 변경 (격자와 맞춤)
+  const [splitSize, setSplitSize] = useState(25);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageObjRef = useRef<HTMLImageElement | null>(null);
@@ -74,13 +74,12 @@ const App: React.FC = () => {
     if (!pixelData) return;
     const zip = new JSZip();
     const { width, height, colors, palette } = pixelData;
-    const blockSize = 40; // 가이드 이미지에서 한 칸의 크기 (크게 저장하여 가독성 확보)
+    const blockSize = 40; 
     
     for (let y = 0; y < height; y += splitSize) {
       for (let x = 0; x < width; x += splitSize) {
         const curW = Math.min(splitSize, width - x);
         const curH = Math.min(splitSize, height - y);
-        
         const c = document.createElement('canvas');
         const ctx = c.getContext('2d')!;
         c.width = curW * blockSize;
@@ -88,22 +87,14 @@ const App: React.FC = () => {
 
         for (let py = 0; py < curH; py++) {
           for (let px = 0; px < curW; px++) {
-            const globalX = x + px;
-            const globalY = y + py;
-            const idx = globalY * width + globalX;
+            const idx = (y + py) * width + (x + px);
             const color = colors[idx];
             const pIdx = palette.findIndex(p => p.hex === color) + 1;
-
-            // 배경색 칠하기
             ctx.fillStyle = color;
             ctx.fillRect(px * blockSize, py * blockSize, blockSize, blockSize);
-
-            // 얇은 격자선
             ctx.strokeStyle = "rgba(0,0,0,0.1)";
             ctx.lineWidth = 0.5;
             ctx.strokeRect(px * blockSize, py * blockSize, blockSize, blockSize);
-
-            // 숫자 그리기
             ctx.fillStyle = getContrastColor(color);
             ctx.font = `bold ${blockSize / 2.5}px sans-serif`;
             ctx.textAlign = 'center';
@@ -112,39 +103,22 @@ const App: React.FC = () => {
           }
         }
 
-        // 가이드용 메이저 그리드 (5칸마다 진한 선)
         ctx.strokeStyle = "rgba(0,0,0,0.4)";
         ctx.lineWidth = 2;
-        for (let gx = 0; gx <= curW; gx++) {
-          if ((x + gx) % 5 === 0) {
-            ctx.beginPath();
-            ctx.moveTo(gx * blockSize, 0);
-            ctx.lineTo(gx * blockSize, c.height);
-            ctx.stroke();
-          }
-        }
-        for (let gy = 0; gy <= curH; gy++) {
-          if ((y + gy) % 5 === 0) {
-            ctx.beginPath();
-            ctx.moveTo(0, gy * blockSize);
-            ctx.lineTo(c.width, gy * blockSize);
-            ctx.stroke();
-          }
-        }
+        for (let gx = 0; gx <= curW; gx++) { if ((x + gx) % 5 === 0) { ctx.beginPath(); ctx.moveTo(gx * blockSize, 0); ctx.lineTo(gx * blockSize, c.height); ctx.stroke(); } }
+        for (let gy = 0; gy <= curH; gy++) { if ((y + gy) % 5 === 0) { ctx.beginPath(); ctx.moveTo(0, gy * blockSize); ctx.lineTo(c.width, gy * blockSize); ctx.stroke(); } }
 
         const blob = await new Promise<Blob | null>(r => c.toBlob(r));
         if (blob) zip.file(`guide_y${Math.floor(y/splitSize)}_x${Math.floor(x/splitSize)}.png`, blob);
       }
     }
 
-    // 원본 1:1 픽셀 이미지도 포함
     const orig = document.createElement('canvas');
     orig.width = width; orig.height = height;
     const octx = orig.getContext('2d')!;
     colors.forEach((col, i) => { octx.fillStyle = col; octx.fillRect(i % width, Math.floor(i / width), 1, 1); });
     const oblob = await new Promise<Blob | null>(r => orig.toBlob(r));
     if (oblob) zip.file("original_pixel.png", oblob);
-
     zip.file("palette_info.json", JSON.stringify({ palette: pixelData.palette }));
     
     const content = await zip.generateAsync({ type: 'blob' });
@@ -160,7 +134,6 @@ const App: React.FC = () => {
     if (!previewCanvasRef.current) return;
     setIsProcessing(true);
     const ctx = previewCanvasRef.current.getContext('2d');
-    
     if (ctx && studioMode === 'BOOK_COVER' && textLayers.length > 0) {
       textLayers.forEach(l => {
         if (!l.text.trim()) return;
@@ -171,21 +144,12 @@ const App: React.FC = () => {
         ctx.fillText(l.text, (l.x / 100) * canvasDim.w, (l.y / 100) * canvasDim.h);
       });
     }
-
     setTimeout(async () => {
       try {
         const data = await processArtStudioPixel(previewCanvasRef.current!.toDataURL(), canvasDim.w, canvasDim.h, 64, { x: 0, y: 0, scale: 1 });
         setPixelData(data);
         setStep('EDITOR');
         setZoom(400);
-        setTimeout(() => {
-          if (editorScrollRef.current) {
-            const c = editorScrollRef.current;
-            const inner = c.firstElementChild as HTMLElement;
-            c.scrollLeft = (inner.offsetWidth - c.clientWidth) / 2;
-            c.scrollTop = (inner.offsetHeight - c.clientHeight) / 2;
-          }
-        }, 100);
       } catch (e) { showToast("변환 중 오류 발생"); }
       finally { setIsProcessing(false); }
     }, 100);
@@ -285,20 +249,20 @@ const App: React.FC = () => {
 
                 {step === 'SETUP' && (
                   <div className="flex-1 flex items-center justify-center">
-                    <div className="bg-white p-12 lg:p-20 rounded-[48px] shadow-2xl max-w-lg w-full">
+                    <div className="bg-white p-12 lg:p-20 rounded-[48px] shadow-2xl max-w-lg w-full border border-slate-50">
                       <h2 className="text-4xl font-black mb-10 italic">Dimension Setup</h2>
                       <div className="grid grid-cols-2 gap-6 mb-10">
-                        <input type="number" value={canvasDim.w} onChange={e=>setCanvasDim({...canvasDim, w:Number(e.target.value)})} className="w-full p-6 bg-slate-50 rounded-3xl font-black text-3xl text-center" />
-                        <input type="number" value={canvasDim.h} onChange={e=>setCanvasDim({...canvasDim, h:Number(e.target.value)})} className="w-full p-6 bg-slate-50 rounded-3xl font-black text-3xl text-center" />
+                        <input type="number" value={canvasDim.w} onChange={e=>setCanvasDim({...canvasDim, w:Number(e.target.value)})} className="w-full p-6 bg-slate-50 rounded-3xl font-black text-3xl text-center border focus:border-pink-500 outline-none" />
+                        <input type="number" value={canvasDim.h} onChange={e=>setCanvasDim({...canvasDim, h:Number(e.target.value)})} className="w-full p-6 bg-slate-50 rounded-3xl font-black text-3xl text-center border focus:border-pink-500 outline-none" />
                       </div>
-                      <button onClick={()=>setStep('UPLOAD')} className="w-full py-7 bg-[#0F172A] text-white rounded-[32px] font-black text-xl">다음 단계로</button>
+                      <button onClick={()=>setStep('UPLOAD')} className="w-full py-7 bg-[#0F172A] text-white rounded-[32px] font-black text-xl shadow-xl hover:bg-black transition-all">다음 단계로</button>
                     </div>
                   </div>
                 )}
 
                 {step === 'UPLOAD' && (
                   <div className="flex-1 flex items-center justify-center">
-                    <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-pink-500 transition-all">
+                    <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-pink-500 transition-all group">
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                         const f = e.target.files?.[0]; if (f) {
                           const r = new FileReader(); r.onload = (ev) => {
@@ -307,7 +271,7 @@ const App: React.FC = () => {
                           }; r.readAsDataURL(f);
                         }
                       }} />
-                      <div className="text-5xl mb-6">📸</div>
+                      <div className="text-5xl mb-6 group-hover:scale-110 transition-all">📸</div>
                       <p className="font-black text-2xl text-slate-900 italic">이미지를 선택하세요</p>
                     </div>
                   </div>
@@ -316,7 +280,7 @@ const App: React.FC = () => {
                 {(step === 'FRAME' || step === 'TEXT') && (
                   <div className="flex flex-col lg:flex-row gap-10 h-full min-h-0">
                     <div className="flex-1 flex flex-col items-center min-h-0">
-                      <div className="bg-white rounded-[60px] shadow-2xl p-6 lg:p-20 w-full flex-1 flex items-center justify-center workspace-pattern relative overflow-hidden">
+                      <div className="bg-white rounded-[60px] shadow-2xl p-6 lg:p-20 w-full flex-1 flex items-center justify-center workspace-pattern relative overflow-hidden border border-slate-50">
                         <div ref={frameContainerRef} className="relative bg-white border-4 border-slate-900 shadow-2xl overflow-hidden cursor-move"
                              style={{ width: 'min(700px, 100%)', aspectRatio: `${canvasDim.w}/${canvasDim.h}` }}
                              onMouseDown={e=>{ frameDragRef.current={isDragging:true, startX:e.clientX, startY:e.clientY, initialX:crop.x, initialY:crop.y}; }}
@@ -329,7 +293,7 @@ const App: React.FC = () => {
                           <canvas ref={previewCanvasRef} width={canvasDim.w} height={canvasDim.h} className="w-full h-full pointer-events-none" style={{imageRendering:'pixelated'}} />
                           <div className="absolute inset-0 pointer-events-none opacity-20" style={{ backgroundImage: `linear-gradient(to right, #000 1px, transparent 1px), linear-gradient(to bottom, #000 1px, transparent 1px)`, backgroundSize: `${100 / canvasDim.w}% ${100 / canvasDim.h}%` }} />
                           {step==='TEXT' && textLayers.map(l=>(
-                            <div key={l.id} className="absolute cursor-move font-black" style={{left:`${l.x}%`, top:`${l.y}%`, transform:'translate(-50%,-50%)', color:l.color, fontSize:`${l.size*2}px` }} 
+                            <div key={l.id} className="absolute cursor-move font-black whitespace-nowrap" style={{left:`${l.x}%`, top:`${l.y}%`, transform:'translate(-50%,-50%)', color:l.color, fontSize:`${l.size*2}px` }} 
                                  onMouseDown={e=>{e.stopPropagation(); setSelectedTextId(l.id);}} />
                           ))}
                         </div>
@@ -361,23 +325,23 @@ const App: React.FC = () => {
                   <div className="flex flex-col lg:flex-row gap-8 h-full min-h-0 animate-in fade-in overflow-hidden">
                     <div className="flex-1 flex flex-col gap-6 min-h-0 overflow-hidden">
                       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between shrink-0">
-                         <button onClick={()=>setStep(studioMode==='PATTERN'?'FRAME':'TEXT')} className="px-6 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-xs text-slate-500 hover:bg-slate-100">이전</button>
+                         <button onClick={()=>setStep(studioMode==='PATTERN'?'FRAME':'TEXT')} className="px-6 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-xs text-slate-500 hover:bg-slate-100 transition-all">이전 단계</button>
                          <div className="flex items-center gap-3">
-                            <button onClick={()=>setShowTipModal(true)} className="px-6 py-3 bg-orange-100 text-orange-600 rounded-xl font-black text-xs">💡 Tip</button>
+                            <button onClick={()=>setShowTipModal(true)} className="px-6 py-3 bg-orange-100 text-orange-600 rounded-xl font-black text-xs hover:bg-orange-200 transition-all">💡 Tip</button>
                             <div className="bg-slate-100 p-1.5 rounded-xl flex items-center gap-3">
-                               <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black hover:bg-slate-200 rounded-lg">-</button>
+                               <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black hover:bg-slate-200 rounded-lg transition-all">-</button>
                                <span className="text-[10px] font-black w-12 text-center">{zoom}%</span>
-                               <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black hover:bg-slate-200 rounded-lg">+</button>
+                               <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black hover:bg-slate-200 rounded-lg transition-all">+</button>
                             </div>
                             <div className="relative">
-                              <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all">내보내기 {showExportMenu ? '▴' : '▾'}</button>
+                              <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all flex items-center gap-2">내보내기 {showExportMenu ? '▴' : '▾'}</button>
                               {showExportMenu && (
                                 <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border p-2 z-[100] animate-in slide-in-from-top-2">
                                   <div className="p-4 bg-slate-50 rounded-xl mb-2">
                                     <label className="text-[10px] font-black text-slate-400 block mb-2 uppercase tracking-widest">분할 크기 (px)</label>
                                     <input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-2 border rounded-lg text-center font-black outline-none focus:border-pink-500" />
                                   </div>
-                                  <button onClick={exportAsZip} className="w-full p-4 text-left hover:bg-slate-50 flex items-center gap-3 rounded-xl transition-colors"><span>📦</span> <span className="font-black text-sm">ZIP 가이드 저장</span></button>
+                                  <button onClick={exportAsZip} className="w-full p-4 text-left hover:bg-slate-50 flex items-center gap-3 rounded-xl transition-colors"><span>📦</span> <div><p className="font-black text-sm">ZIP 가이드 저장</p><p className="text-[10px] text-slate-400">숫자 포함 고해상도</p></div></button>
                                   <button onClick={exportAsJson} className="w-full p-4 text-left hover:bg-slate-50 flex items-center gap-3 rounded-xl transition-colors"><span>📄</span> <span className="font-black text-sm">JSON 데이터 저장</span></button>
                                 </div>
                               )}
@@ -385,37 +349,26 @@ const App: React.FC = () => {
                          </div>
                       </div>
                       
-                      <div ref={editorScrollRef} className="flex-1 bg-white rounded-[48px] overflow-auto relative workspace-pattern custom-scrollbar"
+                      <div ref={editorScrollRef} className="flex-1 bg-white rounded-[48px] overflow-auto relative workspace-pattern border border-slate-100 custom-scrollbar"
                            style={{ '--cell-size': `${zoom / 20}px` } as any}
                            onMouseDown={e=>{if(e.button!==0)return; isPanningRef.current=true; panStartPos.current={x:e.pageX, y:e.pageY, scrollLeft:editorScrollRef.current!.scrollLeft, scrollTop:editorScrollRef.current!.scrollTop}; editorScrollRef.current!.style.cursor='grabbing';}}
                            onMouseMove={e=>{if(!isPanningRef.current)return; editorScrollRef.current!.scrollLeft=panStartPos.current.scrollLeft-(e.pageX-panStartPos.current.x); editorScrollRef.current!.scrollTop=panStartPos.current.scrollTop-(e.pageY-panStartPos.current.y);}}
                            onMouseUp={()=>{isPanningRef.current=false; if(editorScrollRef.current) editorScrollRef.current.style.cursor='default';}}>
                         <div className="inline-block p-[200px]">
                           <div className="bg-white p-6 border-[8px] border-slate-900 shadow-2xl rounded-sm">
-                            <div className="pixel-grid bg-slate-100" style={{ gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` }}>
+                            <div className="pixel-grid" style={{ gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` }}>
                               {pixelData.colors.map((color, idx) => {
                                 const pId = paletteIndexMap.get(color);
                                 const pNum = pixelData.palette.findIndex(p => p.hex === color) + 1;
                                 const isSelected = activePaletteId === pId;
-                                
                                 const colIndex = idx % pixelData.width;
                                 const rowIndex = Math.floor(idx / pixelData.width);
-                                
-                                // 메이저 그리드 스타일 (5칸마다 진한 선)
                                 const borderRight = (colIndex + 1) % 5 === 0 ? '1.5px solid rgba(0,0,0,0.3)' : '0.5px solid rgba(0,0,0,0.1)';
                                 const borderBottom = (rowIndex + 1) % 5 === 0 ? '1.5px solid rgba(0,0,0,0.3)' : '0.5px solid rgba(0,0,0,0.1)';
 
                                 return (
                                   <div key={idx} 
-                                       style={{ 
-                                         backgroundColor: color, 
-                                         width: 'var(--cell-size)', 
-                                         height: 'var(--cell-size)', 
-                                         color: getContrastColor(color), 
-                                         fontSize: zoom >= 250 ? Math.max(5, zoom / 70) + 'px' : '0px',
-                                         borderRight,
-                                         borderBottom
-                                       }}
+                                       style={{ backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: zoom >= 250 ? Math.max(5, zoom / 70) + 'px' : '0px', borderRight, borderBottom }}
                                        className={`pixel-item flex items-center justify-center font-black transition-none ${isSelected ? 'ring-2 ring-[#EC4899] scale-110 z-10 shadow-lg' : 'hover:opacity-80'}`}
                                        onClick={() => setActivePaletteId(isSelected ? null : pId)}>
                                     {zoom >= 250 && pNum}
@@ -438,7 +391,7 @@ const App: React.FC = () => {
                               <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs border shadow-inner" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div>
                               <div className="hidden lg:block flex-1 min-w-0">
                                 <p className="text-[11px] font-black truncate text-slate-900">NO.{p.index}</p>
-                                <p className="text-[9px] font-mono text-slate-400 uppercase">{p.hex}</p>
+                                <p className="text-[9px] font-mono text-slate-400 uppercase tracking-tighter">{p.hex}</p>
                               </div>
                             </div>
                           ))}
@@ -455,10 +408,11 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* 팁 모달 */}
       {showTipModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[1000] flex items-center justify-center p-6 animate-in fade-in" onClick={() => setShowTipModal(false)}>
           <div className="bg-white w-full max-w-2xl rounded-[48px] shadow-2xl overflow-hidden animate-in zoom-in-95" onClick={e=>e.stopPropagation()}>
-            <div className="p-12 border-b flex justify-between items-center bg-slate-50">
+            <div className="p-12 border-b flex justify-between items-center bg-slate-50/50">
                <div>
                  <h2 className="text-3xl font-black italic tracking-tighter">ART STUDIO TIPS</h2>
                  <p className="text-[#EC4899] font-bold text-xs mt-1 uppercase tracking-widest">Master Guide System</p>
@@ -468,9 +422,59 @@ const App: React.FC = () => {
             <div className="p-12 space-y-10">
               <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
                  <h4 className="font-black text-xl mb-2 italic flex items-center gap-2"><span>📂</span> 저장 안내</h4>
-                 <p className="text-slate-500 text-sm leading-relaxed">내보내기 버튼 클릭 시 <span className="text-[#EC4899] font-black underline">{splitSize}px 크기의 고해상도 가이드 도안</span>들이 포함된 ZIP 파일이 생성됩니다. 숫자가 크게 적혀 있어 따라 그리기가 편리합니다.</p>
+                 <p className="text-slate-500 text-sm leading-relaxed">내보내기 버튼 클릭 시 <span className="text-[#EC4899] font-black underline">{splitSize}px 크기의 고해상도 가이드 도안</span>들이 포함된 ZIP 파일이 생성됩니다. 숫자가 크게 적혀 있어 따라 그리기가 편리하며 5칸마다 진한 선이 그어져 있습니다.</p>
               </div>
-              <img src={PALETTE_GUIDE_IMG} className="w-full h-auto rounded-3xl shadow-2xl border-8 border-slate-50" alt="Guide" />
+              <img src={PALETTE_GUIDE_IMG} className="w-full h-auto rounded-3xl shadow-xl" alt="Guide" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 공지사항 모달 (면책사항 상세 버전) */}
+      {activeView === 'HOME' && showNotice && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-white rounded-[48px] shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="p-10 lg:p-14 border-b border-slate-50 bg-slate-50/50 flex flex-col items-center">
+              <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mb-6">
+                <span className="text-4xl">⚖️</span>
+              </div>
+              <h3 className="text-2xl lg:text-3xl font-black italic tracking-tighter text-slate-900 uppercase text-center">Art Studio 이용 면책사항</h3>
+            </div>
+            
+            <div className="p-10 lg:p-14 overflow-y-auto custom-scrollbar max-h-[50vh] space-y-8">
+              <div className="space-y-4">
+                <h4 className="font-black text-lg italic text-slate-900">1. 결과물의 정확성 및 품질</h4>
+                <p className="text-slate-500 text-sm lg:text-base leading-relaxed">
+                  본 서비스는 이미지를 픽셀화하여 도안을 생성하는 보조 도구입니다. 원본 이미지의 품질, 조명, 색상 구성에 따라 변환된 도안의 결과가 실제와 다를 수 있으며, 이에 따른 디자인의 정확성을 100% 보장하지 않습니다.<br/>
+                  <span className="text-slate-900 font-bold">사용자는 도안을 실제 제작(자수, 블록 등)에 사용하기 전, 반드시 색상과 칸수를 최종 확인해야 합니다.</span>
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-black text-lg italic text-slate-900">2. 저작권 및 사용 책임</h4>
+                <p className="text-slate-500 text-sm lg:text-base leading-relaxed">
+                  사용자가 업로드하는 이미지에 대한 저작권 책임은 전적으로 사용자 본인에게 있습니다. 저작권이 있는 이미지(캐릭터, 타인의 작품 등)를 무단 사용하여 발생하는 법적 분쟁에 대해 서비스는 책임을 지지 않습니다.<br/>
+                  <span className="text-slate-900 font-bold">생성된 도안을 상업적으로 이용할 경우, 원본 이미지의 저작권 규정을 준수해야 합니다.</span>
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-black text-lg italic text-slate-900">3. 데이터 보관 및 손실</h4>
+                <p className="text-slate-500 text-sm lg:text-base leading-relaxed">
+                  본 서비스는 브라우저 기반으로 작동하며, 별도의 서버에 사용자의 이미지를 영구 저장하지 않습니다. 브라우저 종료, 캐시 삭제 등으로 인해 발생하는 작업 데이터 손실에 대해서는 책임을 지지 않으므로, <span className="text-slate-900 font-bold underline">작업 완료 후 반드시 [내보내기]를 통해 파일을 저장하시기 바랍니다.</span>
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-black text-lg italic text-slate-900">4. 서비스 이용 환경</h4>
+                <p className="text-slate-500 text-sm lg:text-base leading-relaxed">
+                  사용자 기기의 성능, 브라우저 버전, 네트워크 상태에 따라 서비스 이용 및 파일 다운로드(ZIP, JSON)가 원활하지 않을 수 있습니다. <span className="text-slate-900 font-bold">권장 브라우저(Chrome 등) 환경에서의 이용을 권장합니다.</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-10 lg:p-14 bg-slate-50/50">
+              <button onClick={() => setShowNotice(false)} className="w-full py-6 bg-[#EC4899] text-white rounded-[32px] font-black text-xl shadow-xl hover:bg-[#DB2777] transition-all">확인했습니다</button>
             </div>
           </div>
         </div>

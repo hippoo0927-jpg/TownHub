@@ -1,5 +1,5 @@
 {
-  "name": "Gemini Art Studio",
+  "name": "Art Studio",
   "description": "A professional AI art generation and editing studio powered by Gemini models, featuring text-to-image and image-to-image capabilities.",
   "requestFramePermissions": [
     "camera"
