@@ -354,21 +354,57 @@ const App: React.FC = () => {
                       >
                         <div className="inline-block p-[200px]">
                           <div className="bg-white p-6 border-[8px] border-slate-900 shadow-2xl rounded-sm">
-                            <div className="pixel-grid" style={{ gridTemplateColumns: `repeat(${pixelData.width}, ${zoom/20}px)` }}>
-                              {pixelData.colors.map((color, idx) => {
-                                const pIdx = pixelData.palette.findIndex(p => p.hex === color);
-                                const pNum = pIdx + 1;
-                                const isSelected = activePaletteId === (pixelData.palette[pIdx]?.index || null);
-                                return (
-                                  <div key={idx} style={{ backgroundColor: color, width: zoom/20, height: zoom/20, color: getContrastColor(color), fontSize: Math.max(5, zoom / 70) + 'px' }}
-                                       className={`pixel-item flex items-center justify-center font-black transition-all ${isSelected ? 'ring-2 ring-[#EC4899] scale-110 z-10 shadow-lg' : 'hover:ring-1 hover:ring-white/30'}`}
-                                       onClick={() => setActivePaletteId(isSelected ? null : pixelData.palette[pIdx]?.index || null)}
-                                  >
-                                    {zoom >= 250 && pNum}
-                                  </div>
-                                );
-                              })}
-                            </div>
+                            <canvas 
+  ref={(canvas) => {
+    if (canvas && pixelData) {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const size = zoom / 20; // 현재 줌 수치에 따른 한 칸의 크기
+      canvas.width = pixelData.width * size;
+      canvas.height = pixelData.height * size;
+      
+      // 1. 픽셀색상 및 숫자 먼저 그리기
+      pixelData.colors.forEach((color, idx) => {
+        const x = (idx % pixelData.width) * size;
+        const y = Math.floor(idx / pixelData.width) * size;
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, size, size);
+        
+        if (zoom >= 250) {
+          const pIdx = pixelData.palette.findIndex(p => p.hex === color);
+          ctx.fillStyle = getContrastColor(color);
+          ctx.font = `bold ${size / 2.5}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(String(pIdx + 1), x + size / 2, y + size / 2);
+        }
+      });
+
+      // 2. 격자선 추가 (픽셀 위에 덧그리기)
+      // 세로선 그리기
+      for (let i = 0; i <= pixelData.width; i++) {
+        const isBold = i % 5 === 0;
+        ctx.strokeStyle = isBold ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.1)";
+        ctx.lineWidth = isBold ? 1.5 : 0.5;
+        ctx.beginPath();
+        ctx.moveTo(i * size, 0);
+        ctx.lineTo(i * size, canvas.height);
+        ctx.stroke();
+      }
+      
+      // 가로선 그리기
+      for (let j = 0; j <= pixelData.height; j++) {
+        const isBold = j % 5 === 0;
+        ctx.strokeStyle = isBold ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.1)";
+        ctx.lineWidth = isBold ? 1.5 : 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, j * size);
+        ctx.lineTo(canvas.width, j * size);
+        ctx.stroke();
+      }
+    }
+  }}
+/>
                           </div>
                         </div>
                       </div>
