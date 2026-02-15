@@ -569,27 +569,30 @@ const exportAsZip = async () => {
       )}
 
       {/* Tip Modal */}
+      </main>
+
+      {/* 팁 모달 - 여기부터 파일 끝까지 덮어쓰기 하세요 */}
       {showTipModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 lg:p-10 bg-[#0F172A]/80 backdrop-blur-md animate-in fade-in" onClick={()=>setShowTipModal(false)}>
-          <div className="bg-white rounded-[48px] p-8 lg:p-12 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative shadow-2xl border border-white/20" onClick={e=>e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8 sticky top-0 bg-white z-10 py-2">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-[48px] shadow-2xl overflow-hidden border border-white/20 animate-in slide-in-from-bottom-8">
+            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
                <div>
                  <h3 className="text-3xl font-black italic tracking-tighter">🎨 Art Studio Tips</h3>
                  <p className="text-[#EC4899] font-bold text-sm mt-1">내보내기를 누르면 압축된 사진을 받을 수 있습니다.</p>
                </div>
-               <button onClick={()=>setShowTipModal(false)} className="w-12 h-12 bg-slate-100 rounded-full font-black text-slate-500 hover:bg-slate-900 hover:text-white transition-all">✕</button>
+               <button onClick={() => setShowTipModal(false)} className="w-12 h-12 bg-slate-100 rounded-full font-black text-slate-500 hover:bg-slate-900 hover:text-white transition-all">✕</button>
             </div>
-            <div className="space-y-8">
+            <div className="p-10 space-y-8">
               <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
                  <h4 className="font-black text-lg mb-2 italic">📂 저장 안내</h4>
-                 <p className="text-slate-500 text-sm leading-relaxed">우측 상단 <span className="text-[#EC4899] font-black">내보내기</span> 버튼 클릭 시 제작된 도안과 메타데이터가 <span className="font-bold underline text-slate-900">ZIP 압축 파일</span>로 즉시 다운로드됩니다.</p>
+                 <p className="text-slate-500 text-sm leading-relaxed">
+                   우측 상단 <span className="text-[#EC4899] font-black">내보내기</span> 버튼 클릭 시 제작된 도안이 
+                   <span className="font-bold underline text-slate-900 ml-1">{splitSize}px 단위 분할 이미지</span>와 
+                   데이터 파일이 포함된 <span className="font-bold underline text-slate-900">ZIP 압축 파일</span>로 즉시 다운로드됩니다.
+                 </p>
               </div>
               <div className="rounded-[40px] overflow-hidden border-8 border-slate-50 shadow-inner">
                 <img src={PALETTE_GUIDE_IMG} className="w-full h-auto" alt="Guide" />
-              </div>
-              <div className="text-center space-y-2">
-                <p className="text-slate-900 font-black text-sm italic">가이드 번호를 확인하여 타운 팔레트에 색상을 배치하세요!</p>
-                <p className="text-slate-400 font-bold text-[11px]">이 가이드는 두근두근타운 픽셀 아티스트를 위해 제작되었습니다.</p>
               </div>
             </div>
           </div>
