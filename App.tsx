@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageObjRef = useRef<HTMLImageElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const frameDragRef = useRef({ isDragging: false, startX: 0, startY: 0, initialX: 0, initialY: 0 });
   const frameContainerRef = useRef<HTMLDivElement>(null);
@@ -77,22 +78,25 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if ((step === 'FRAME' || step === 'TEXT') && uploadedImg && previewCanvasRef.current) {
+    // imageObjRef.current를 사용해 이미 로드된 이미지를 재사용합니다.
+    if ((step === 'FRAME' || step === 'TEXT') && imageObjRef.current && previewCanvasRef.current) {
       const ctx = previewCanvasRef.current.getContext('2d');
       if (!ctx) return;
+
+      // 캔버스 초기화
+      ctx.clearRect(0, 0, canvasDim.w, canvasDim.h);
       ctx.fillStyle = "white";
       ctx.fillRect(0, 0, canvasDim.w, canvasDim.h);
-      const img = new Image();
-      img.src = uploadedImg;
-      img.onload = () => {
-        ctx.save();
-        ctx.translate(canvasDim.w / 2 + crop.x, canvasDim.h / 2 + crop.y);
-        ctx.scale(crop.scale, crop.scale);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        ctx.restore();
-      };
+
+      ctx.save();
+      // 이미지 조정 시 부드럽게 움직이도록 설정
+      ctx.translate(canvasDim.w / 2 + crop.x, canvasDim.h / 2 + crop.y);
+      ctx.scale(crop.scale, crop.scale);
+      // 매번 new Image()를 하지 않고 저장된 객체만 다시 그립니다.
+      ctx.drawImage(imageObjRef.current, -imageObjRef.current.width / 2, -imageObjRef.current.height / 2);
+      ctx.restore();
     }
-  }, [step, uploadedImg, crop, canvasDim]);
+  }, [step, crop, canvasDim]); // [주의] uploadedImg를 의존성 배열에서 뺐습니다.
 
   const Sidebar = () => (
     <aside className="w-full lg:w-[260px] bg-[#030712] flex lg:flex-col shrink-0 border-r border-slate-900 z-50 overflow-x-auto lg:overflow-x-hidden">
@@ -230,8 +234,23 @@ const App: React.FC = () => {
                 {step === 'UPLOAD' && (
                   <div className="flex-1 flex items-center justify-center">
                     <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-pink-500 transition-all group">
-                      <input type="file" ref={fileInputRef} onChange={e=>{
-                        const f=e.target.files?.[0]; if(f){ const r=new FileReader(); r.onload=ev=>{setUploadedImg(ev.target?.result as string); setStep('FRAME');}; r.readAsDataURL(f); }
+                      <input type="file" ref={fileInputRef} // input type="file" 부분의 onChange를 이렇게 바꾸세요.
+onChange={e=>{
+  const f=e.target.files?.[0]; 
+  if(f){ 
+    const r=new FileReader(); 
+    r.onload=ev=>{
+      const img = new Image();
+      img.src = ev.target?.result as string;
+      img.onload = () => {
+        imageObjRef.current = img; // 이 줄이 핵심입니다!
+        setUploadedImg(img.src); 
+        setStep('FRAME');
+      };
+    }; 
+    r.readAsDataURL(f); 
+  }
+}}
                       }} className="hidden" accept="image/*" />
                       <div className="w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
                         <span className="text-5xl">📸</span>
