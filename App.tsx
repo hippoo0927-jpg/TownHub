@@ -83,26 +83,24 @@ const App: React.FC = () => {
   };
 
   // [추가] 2. ZIP 내보내기 함수
-  const exportAsZip = async () => {
+  const [splitSize, setSplitSize] = useState(20); // 1. 분할 크기 상태 추가
+
+const exportAsZip = async () => {
   if (!pixelData) return;
   const zip = new JSZip();
   const { width, height, colors } = pixelData;
   
-  // 이미지를 쪼개서 저장하는 루프
-  // i: 행(Row), j: 열(Col)
+  // 2. 이미지를 splitSize 단위로 쪼개서 저장
   for (let y = 0; y < height; y += splitSize) {
     for (let x = 0; x < width; x += splitSize) {
       const c = document.createElement('canvas');
       const ctx = c.getContext('2d')!;
-      
-      // 실제 조각의 크기 계산 (끝부분 처리)
       const currentW = Math.min(splitSize, width - x);
       const currentH = Math.min(splitSize, height - y);
       
       c.width = currentW;
       c.height = currentH;
 
-      // 해당 영역의 픽셀만 그리기
       for (let py = 0; py < currentH; py++) {
         for (let px = 0; px < currentW; px++) {
           const colorIndex = (y + py) * width + (x + px);
@@ -111,28 +109,20 @@ const App: React.FC = () => {
         }
       }
 
-      // 캔버스를 Blob으로 변환하여 ZIP에 추가
       const blob = await new Promise<Blob | null>(r => c.toBlob(r));
       if (blob) {
-        // 파일 이름 예: pattern_0_0.png (행_열)
         zip.file(`tile_${y / splitSize}_${x / splitSize}.png`, blob);
       }
     }
   }
   
-  // 전체 정보 JSON 포함
-  zip.file("data.json", JSON.stringify({ 
-    metadata: { splitSize, totalWidth: width, totalHeight: height },
-    palette: pixelData.palette, 
-    pixels: pixelData.colors 
-  }));
-  
+  zip.file("data.json", JSON.stringify({ palette: pixelData.palette, pixels: pixelData.colors }));
   const content = await zip.generateAsync({ type: 'blob' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(content);
-  a.download = `town_pattern_pack_${Date.now()}.zip`;
+  a.download = `town_pattern_${splitSize}px_pack.zip`;
   a.click();
-  showToast("분할 이미지 압축 완료!");
+  showToast("분할 압축 완료!");
   setShowExportMenu(false);
 };
     }
@@ -421,30 +411,30 @@ const App: React.FC = () => {
   </button>
 
   {showExportMenu && (
-  <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] p-2">
-    {/* 분할 크기 입력 필드 추가 */}
+  <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] p-2 animate-in fade-in slide-in-from-top-2">
     <div className="p-4 bg-slate-50 rounded-xl mb-2">
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">분할 크기 (px)</label>
-      <div className="flex items-center gap-2">
-        <input 
-          type="number" 
-          value={splitSize} 
-          onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))}
-          className="w-full p-2 bg-white border border-slate-200 rounded-lg font-black text-center"
-        />
-        <span className="text-xs font-bold text-slate-500">x {splitSize}</span>
-      </div>
+      <input 
+        type="number" 
+        value={splitSize} 
+        onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))}
+        className="w-full p-2 bg-white border border-slate-200 rounded-lg font-black text-center outline-none focus:border-pink-500"
+      />
     </div>
-    
     <button onClick={exportAsZip} className="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors">
       <span className="text-xl">📦</span>
       <div>
-        <p className="font-black text-sm text-slate-900">ZIP 파일로 분할 저장</p>
-        <p className="text-[10px] text-slate-400 font-bold">이미지가 {splitSize}px 단위로 쪼개집니다</p>
+        <p className="font-black text-sm text-slate-900">ZIP 분할 저장</p>
+        <p className="text-[10px] text-slate-400 font-bold">{splitSize}px 단위 이미지들</p>
       </div>
     </button>
-    </div>
-  )}
+    <div className="h-[1px] bg-slate-100 mx-4"></div>
+    <button onClick={exportAsJson} className="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors">
+      <span className="text-xl">📄</span>
+      <p className="font-black text-sm text-slate-900">JSON 데이터 저장</p>
+    </button>
+  </div>
+)}
 </div>
                       </div>
                       
