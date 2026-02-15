@@ -188,7 +188,7 @@ const App: React.FC = () => {
                  <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=hippo&backgroundColor=b6e3f4" alt="Hippo" className="w-full h-full object-cover" />
               </div>
               <div className="flex flex-col">
-                 <p className="text-white font-black text-sm italic">히포 (Hippo)</p>
+                 <p className="text-white font-black text-sm italic">히포 (Hippoo_)</p>
                  <p className="text-[#F472B6] font-black text-[10px] uppercase tracking-widest mt-0.5">Master Artisan</p>
               </div>
            </div>
