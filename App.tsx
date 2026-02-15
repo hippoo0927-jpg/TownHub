@@ -512,98 +512,56 @@ const App: React.FC = () => {
                       <h3 className="font-black mb-6 italic text-xl shrink-0">🎨 Palette</h3>
                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                         <div className="grid grid-cols-4 lg:grid-cols-1 gap-3">
-                          {pixelData.palette.map((p, i) => (
-                            <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} 
-                                 className={`flex items-center gap-4 p-3 rounded-2xl border-2 cursor-pointer transition-all ${activePaletteId===p.index?'bg-pink-50 border-[#EC4899] shadow-md':'bg-white border-transparent hover:bg-slate-50'}`}>
-                              <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs border shadow-inner shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div>
-                              <div className="hidden lg:block flex-1 min-w-0">
-                                <p className="text-[11px] font-black truncate text-slate-900">NO.{p.index}</p>
-                                <p className="text-[9px] font-mono text-slate-400 uppercase">{p.hex}</p>
-                              </div>
-                              <span className="hidden lg:block font-black text-[#EC4899] text-xs">{p.count}</span>
-                            </div>
                           ))}
                         </div>
                       </div>
-                    </div> {/* Palette 사이드바 끝 */}
+                    </div> {/* Palette Sidebar 닫기 */}
                   </div> 
-                )} {/* step === 'EDITOR' 끝 */}
+                )} {/* step === 'EDITOR' 닫기 */}
               </div> 
             ) : ( 
-              /* activeView가 STUDIO가 아닐 때 (HOME, FEED 등) 보여줄 화면 */
+              /* activeView가 STUDIO가 아닐 때 (HOME 등) 보여줄 화면 */
               <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-pulse">
-                 <div className="text-8xl">🚀</div>
-                 <div className="font-black italic text-3xl text-slate-200 uppercase tracking-widest">{activeView} HUB 준비 중...</div>
+                <div className="text-8xl">🚀</div>
+                <div className="font-black italic text-3xl text-slate-200 uppercase tracking-widest">{activeView} HUB 준비 중...</div>
               </div>
             )}
           </div>
         </div>
       </main>
 
-      {/* Notice Modal */}
-      {activeView === 'HOME' && showNotice && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-[#0F172A]/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="bg-white rounded-[48px] p-8 lg:p-14 max-w-xl w-full shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
-            <div className="text-center space-y-8">
-              <div className="w-20 h-20 bg-pink-100 rounded-full flex items-center justify-center mx-auto">
-                <span className="text-4xl">✨</span>
+      {/* 팁 모달 */}
+      {showTipModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[1000] flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[48px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="p-12 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+               <div>
+                 <h2 className="text-4xl font-black italic tracking-tighter mb-1">ART STUDIO</h2>
+                 <p className="text-slate-400 font-bold text-sm uppercase tracking-widest">Master your pixel art flow</p>
+               </div>
+               <button onClick={() => setShowTipModal(false)} className="w-14 h-14 bg-white border border-slate-100 rounded-2xl font-black text-slate-400 hover:bg-slate-900 hover:text-white transition-all shadow-sm flex items-center justify-center text-xl">✕</button>
+            </div>
+            <div className="p-12 space-y-10">
+              <div className="bg-slate-50 p-10 rounded-[40px] border border-slate-100 space-y-4">
+                 <h4 className="font-black text-xl italic flex items-center gap-2"><span>📂</span> 저장 안내</h4>
+                 <p className="text-slate-500 text-base leading-relaxed">
+                   우측 상단 <span className="text-[#EC4899] font-black underline">내보내기</span> 버튼 클릭 시 제작된 도안이 
+                   <span className="font-bold text-slate-900 ml-1">{splitSize}px 단위 분할 이미지</span>와 
+                   데이터 파일이 포함된 <span className="font-bold text-slate-900">ZIP 압축 파일</span>로 즉시 다운로드됩니다.
+                 </p>
               </div>
-              <div className="space-y-4">
-                <h3 className="text-2xl lg:text-3xl font-black italic tracking-tighter text-slate-900 uppercase">서비스 안내 및 유의사항</h3>
-                <div className="space-y-4 text-slate-600 font-medium text-sm lg:text-base leading-relaxed text-center px-4">
-                  <p>
-                    본 서비스는 여러분의 창작 활동을 돕기 위해 만든 무료 변환 도구입니다. 
-                    <span className="text-slate-900 font-bold"> 소중한 사진은 변환 즉시 파기되며 서버에 절대 저장되지 않으니 </span> 
-                    안심하고 사용하세요!
-                  </p>
-                  <p>
-                    아직 개발 중인 단계라 완벽하지 않을 수 있지만, 여러분의 소중한 피드백은 언제나 환영합니다. 
-                    <span className="block mt-4 text-[13px] text-slate-400 font-bold">
-                      단, 결과물의 저작권 책임은 원본 이미지 소유자에게 있으며, 
-                      본 서비스는 결과물 활용으로 발생하는 문제에 대해 책임을 지지 않습니다.
-                    </span>
-                  </p>
-                </div>
+              <div className="rounded-[48px] overflow-hidden border-[10px] border-slate-50 shadow-2xl">
+                <img src={PALETTE_GUIDE_IMG} className="w-full h-auto" alt="Guide" />
               </div>
-              <button 
-                onClick={() => setShowNotice(false)} 
-                className="w-full py-6 bg-[#EC4899] text-white rounded-[32px] font-black text-xl shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all active:scale-95"
-              >
-                확인하였습니다
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Tip Modal */}
-      </main>
-
-      {/* 팁 모달 - 여기부터 파일 끝까지 덮어쓰기 하세요 */}
-      {showTipModal && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-[48px] shadow-2xl overflow-hidden border border-white/20 animate-in slide-in-from-bottom-8">
-            <div className="p-10 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
-               <div>
-                 <h3 className="text-3xl font-black italic tracking-tighter">🎨 Art Studio Tips</h3>
-                 <p className="text-[#EC4899] font-bold text-sm mt-1">내보내기를 누르면 압축된 사진을 받을 수 있습니다.</p>
-               </div>
-               <button onClick={() => setShowTipModal(false)} className="w-12 h-12 bg-slate-100 rounded-full font-black text-slate-500 hover:bg-slate-900 hover:text-white transition-all">✕</button>
-            </div>
-            <div className="p-10 space-y-8">
-              <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
-                 <h4 className="font-black text-lg mb-2 italic">📂 저장 안내</h4>
-                 <p className="text-slate-500 text-sm leading-relaxed">
-                   우측 상단 <span className="text-[#EC4899] font-black">내보내기</span> 버튼 클릭 시 제작된 도안이 
-                   <span className="font-bold underline text-slate-900 ml-1">{splitSize}px 단위 분할 이미지</span>와 
-                   데이터 파일이 포함된 <span className="font-bold underline text-slate-900">ZIP 압축 파일</span>로 즉시 다운로드됩니다.
-                 </p>
-              </div>
-              <div className="rounded-[40px] overflow-hidden border-8 border-slate-50 shadow-inner">
-                <img src={PALETTE_GUIDE_IMG} className="w-full h-auto" alt="Guide" />
-              </div>
-            </div>
-          </div>
+      {/* 토스트 메시지 */}
+      {toast && (
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[2000] px-10 py-5 bg-slate-900 text-white rounded-3xl font-black shadow-2xl animate-in slide-in-from-bottom-8">
+          {toast}
         </div>
       )}
     </div>
