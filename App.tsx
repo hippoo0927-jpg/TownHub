@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [showTipModal, setShowTipModal] = useState(false);
   const [showNotice, setShowNotice] = useState(true); // 공지사항 팝업 상태
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +58,53 @@ const App: React.FC = () => {
         ctx.textBaseline = 'middle';
         ctx.fillText(l.text, (l.x / 100) * canvasDim.w, (l.y / 100) * canvasDim.h);
       });
+      // [추가] 1. JSON 내보내기 함수
+  const exportAsJson = () => {
+    if (!pixelData) return;
+    const artData = {
+      metadata: {
+        title: "TownHub_Design",
+        dimensions: canvasDim,
+        mode: studioMode,
+        timestamp: new Date().toISOString()
+      },
+      palette: pixelData.palette,
+      pixels: pixelData.colors
+    };
+    const blob = new Blob([JSON.stringify(artData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `town_design_${Date.now()}.json`;
+    a.click();
+    showToast("JSON 파일 다운로드 완료!");
+    setShowExportMenu(false);
+  };
+
+  // [추가] 2. ZIP 내보내기 함수
+  const exportAsZip = async () => {
+    if (!pixelData) return;
+    const zip = new JSZip();
+    const { width, height, colors } = pixelData;
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d')!;
+    c.width = width;
+    c.height = height;
+    colors.forEach((col, i) => {
+      ctx.fillStyle = col;
+      ctx.fillRect(i % width, Math.floor(i / width), 1, 1);
+    });
+    const b = await new Promise<Blob | null>(r => c.toBlob(r));
+    if (b) zip.file("pattern.png", b);
+    zip.file("data.json", JSON.stringify({ palette: pixelData.palette, pixels: pixelData.colors }));
+    const content = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = "town_pattern_pack.zip";
+    a.click();
+    showToast("ZIP 압축 파일 다운로드 완료!");
+    setShowExportMenu(false);
+  };
     }
     setTimeout(async () => {
       try {
@@ -334,17 +382,34 @@ const App: React.FC = () => {
                                <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black text-xl hover:bg-slate-200 rounded-lg transition-all">-</button>
                                <span className="text-[10px] font-black w-12 text-center">{zoom}%</span>
                                <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black text-xl hover:bg-slate-200 rounded-lg transition-all">+</button>
-                            </div>
-                            <button onClick={async()=>{
-                               const zip=new JSZip(); const {width, height, colors}=pixelData;
-                               const c=document.createElement('canvas'); const ctx=c.getContext('2d')!;
-                               c.width=width; c.height=height;
-                               colors.forEach((col,i)=>{ctx.fillStyle=col; ctx.fillRect(i%width, Math.floor(i/width),1,1);});
-                               const b=await new Promise<Blob|null>(r=>c.toBlob(r)); if(b) zip.file("pattern.png", b);
-                               const content=await zip.generateAsync({type:'blob'});
-                               const a=document.createElement('a'); a.href=URL.createObjectURL(content); a.download="town_pattern.zip"; a.click(); showToast("다운로드 완료!");
-                            }} className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black text-lg shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all">내보내기</button>
-                         </div>
+                           <div className="relative">
+  <button 
+    onClick={() => setShowExportMenu(!showExportMenu)}
+    className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black text-lg shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all flex items-center gap-2"
+  >
+    내보내기 {showExportMenu ? '▴' : '▾'}
+  </button>
+
+  {showExportMenu && (
+    <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2">
+      <button onClick={exportAsZip} className="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors">
+        <span className="text-xl">📦</span>
+        <div>
+          <p className="font-black text-sm text-slate-900">ZIP 파일로 저장</p>
+          <p className="text-[10px] text-slate-400 font-bold">이미지 + 데이터 포함</p>
+        </div>
+      </button>
+      <div className="h-[1px] bg-slate-100 mx-4"></div>
+      <button onClick={exportAsJson} className="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors">
+        <span className="text-xl">📄</span>
+        <div>
+          <p className="font-black text-sm text-slate-900">JSON 파일로 저장</p>
+          <p className="text-[10px] text-slate-400 font-bold">프로그램 불러오기용</p>
+        </div>
+      </button>
+    </div>
+  )}
+</div>
                       </div>
                       
                       <div ref={editorScrollRef} className="flex-1 bg-white rounded-[48px] overflow-auto relative workspace-pattern border border-slate-100 custom-scrollbar"
