@@ -22,7 +22,6 @@ const App: React.FC = () => {
   const [uploadedImg, setUploadedImg] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0, scale: 0.8 });
   const [zoom, setZoom] = useState(400);
-  const [splitSize, setSplitSize] = useState(20); // 기본값 20x20
   const [pixelData, setPixelData] = useState<PixelData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activePaletteId, setActivePaletteId] = useState<string | null>(null);
