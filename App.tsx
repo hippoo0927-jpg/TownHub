@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
+  const [splitSize, setSplitSize] = useState(20); // 추가
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageObjRef = useRef<HTMLImageElement | null>(null);
@@ -59,16 +60,11 @@ const App: React.FC = () => {
         ctx.textBaseline = 'middle';
         ctx.fillText(l.text, (l.x / 100) * canvasDim.w, (l.y / 100) * canvasDim.h);
       });
-      // [추가] 1. JSON 내보내기 함수
+      // --- 기존 startPixelation을 밖으로 빼고 독립된 함수로 분리 ---
   const exportAsJson = () => {
     if (!pixelData) return;
     const artData = {
-      metadata: {
-        title: "TownHub_Design",
-        dimensions: canvasDim,
-        mode: studioMode,
-        timestamp: new Date().toISOString()
-      },
+      metadata: { title: "TownHub_Design", dimensions: canvasDim, mode: studioMode, timestamp: new Date().toISOString() },
       palette: pixelData.palette,
       pixels: pixelData.colors
     };
@@ -78,73 +74,72 @@ const App: React.FC = () => {
     a.href = url;
     a.download = `town_design_${Date.now()}.json`;
     a.click();
-    showToast("JSON 파일 다운로드 완료!");
     setShowExportMenu(false);
+    showToast("JSON 다운로드 완료!");
   };
 
-  // [추가] 2. ZIP 내보내기 함수
-  const [splitSize, setSplitSize] = useState(20); // 1. 분할 크기 상태 추가
+  const exportAsZip = async () => {
+    if (!pixelData) return;
+    const zip = new JSZip();
+    const { width, height, colors } = pixelData;
+    
+    // 분할 저장 로직 (사용자가 설정한 splitSize 적용)
+    for (let y = 0; y < height; y += splitSize) {
+      for (let x = 0; x < width; x += splitSize) {
+        const c = document.createElement('canvas');
+        const ctx = c.getContext('2d')!;
+        const curW = Math.min(splitSize, width - x);
+        const curH = Math.min(splitSize, height - y);
+        c.width = curW; c.height = curH;
 
-const exportAsZip = async () => {
-  if (!pixelData) return;
-  const zip = new JSZip();
-  const { width, height, colors } = pixelData;
-  
-  // 2. 이미지를 splitSize 단위로 쪼개서 저장
-  for (let y = 0; y < height; y += splitSize) {
-    for (let x = 0; x < width; x += splitSize) {
-      const c = document.createElement('canvas');
-      const ctx = c.getContext('2d')!;
-      const currentW = Math.min(splitSize, width - x);
-      const currentH = Math.min(splitSize, height - y);
-      
-      c.width = currentW;
-      c.height = currentH;
-
-      for (let py = 0; py < currentH; py++) {
-        for (let px = 0; px < currentW; px++) {
-          const colorIndex = (y + py) * width + (x + px);
-          ctx.fillStyle = colors[colorIndex];
-          ctx.fillRect(px, py, 1, 1);
+        for (let py = 0; py < curH; py++) {
+          for (let px = 0; px < curW; px++) {
+            const idx = (y + py) * width + (x + px);
+            ctx.fillStyle = colors[idx];
+            ctx.fillRect(px, py, 1, 1);
+          }
         }
+        const blob = await new Promise<Blob | null>(r => c.toBlob(r));
+        if (blob) zip.file(`tile_${y/splitSize}_${x/splitSize}.png`, blob);
       }
+    }
+    zip.file("data.json", JSON.stringify({ palette: pixelData.palette, pixels: pixelData.colors }));
+    const content = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = `town_pattern_${splitSize}px.zip`;
+    a.click();
+    setShowExportMenu(false);
+    showToast("ZIP 압축 완료!");
+  };
 
-      const blob = await new Promise<Blob | null>(r => c.toBlob(r));
-      if (blob) {
-        zip.file(`tile_${y / splitSize}_${x / splitSize}.png`, blob);
-      }
+  const startPixelation = async () => {
+    if (!previewCanvasRef.current) return;
+    setIsProcessing(true);
+    const ctx = previewCanvasRef.current.getContext('2d');
+    
+    if (ctx && studioMode === 'BOOK_COVER' && textLayers.length > 0) {
+      textLayers.forEach(l => {
+        if (!l.text.trim()) return;
+        ctx.fillStyle = l.color;
+        ctx.font = `bold ${l.size}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(l.text, (l.x / 100) * canvasDim.w, (l.y / 100) * canvasDim.h);
+      });
     }
-  }
-  
-  zip.file("data.json", JSON.stringify({ palette: pixelData.palette, pixels: pixelData.colors }));
-  const content = await zip.generateAsync({ type: 'blob' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(content);
-  a.download = `town_pattern_${splitSize}px_pack.zip`;
-  a.click();
-  showToast("분할 압축 완료!");
-  setShowExportMenu(false);
-};
-    }
+
     setTimeout(async () => {
       try {
         const data = await processArtStudioPixel(previewCanvasRef.current!.toDataURL(), canvasDim.w, canvasDim.h, 64, { x: 0, y: 0, scale: 1 });
         setPixelData(data);
         setStep('EDITOR');
         setZoom(400);
-        setTimeout(() => {
-            if (editorScrollRef.current) {
-                const c = editorScrollRef.current;
-                const inner = c.firstElementChild as HTMLElement;
-                c.scrollLeft = (inner.offsetWidth - c.clientWidth) / 2;
-                c.scrollTop = (inner.offsetHeight - c.clientHeight) / 2;
-            }
-        }, 100);
       } catch (e) { showToast("변환 중 오류 발생"); }
       finally { setIsProcessing(false); }
     }, 100);
   };
-
+  
   useEffect(() => {
     // imageObjRef.current를 사용해 이미 로드된 이미지를 재사용합니다.
     if ((step === 'FRAME' || step === 'TEXT') && imageObjRef.current && previewCanvasRef.current) {
@@ -402,7 +397,9 @@ const exportAsZip = async () => {
                                <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black text-xl hover:bg-slate-200 rounded-lg transition-all">-</button>
                                <span className="text-[10px] font-black w-12 text-center">{zoom}%</span>
                                <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black text-xl hover:bg-slate-200 rounded-lg transition-all">+</button>
-                           <div className="relative">
+</div> {/* 줌 컨트롤 영역을 닫아주는 div 추가 */}
+
+<div className="relative"> {/* 내보내기 버튼 시작 */}
   <button 
     onClick={() => setShowExportMenu(!showExportMenu)}
     className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black text-lg shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all flex items-center gap-2"
@@ -421,6 +418,17 @@ const exportAsZip = async () => {
         className="w-full p-2 bg-white border border-slate-200 rounded-lg font-black text-center outline-none focus:border-pink-500"
       />
     </div>
+
+    <div className="px-6 py-2">
+  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">분할 크기 (px)</label>
+  <input 
+    type="number" 
+    value={splitSize} 
+    onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} 
+    className="w-full p-2 bg-slate-50 rounded-lg text-center font-black border focus:border-pink-500" 
+  />
+</div>
+<div className="h-[1px] bg-slate-100 mx-4"></div>
     <button onClick={exportAsZip} className="w-full px-6 py-4 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors">
       <span className="text-xl">📦</span>
       <div>
