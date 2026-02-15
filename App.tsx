@@ -234,18 +234,18 @@ const App: React.FC = () => {
                 {step === 'UPLOAD' && (
                   <div className="flex-1 flex items-center justify-center">
                     <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-pink-500 transition-all group">
-                      <input 
-  type="file" 
+                    <input 
+   type="file" 
   ref={fileInputRef} 
-  onChange={e => {
+  onChange={(e) => {
     const f = e.target.files?.[0]; 
     if (f) { 
       const r = new FileReader(); 
-      r.onload = ev => {
+      r.onload = (ev) => {
         const img = new Image();
         img.src = ev.target?.result as string;
         img.onload = () => {
-          imageObjRef.current = img; // 아까 만든 Ref에 저장
+          imageObjRef.current = img; 
           setUploadedImg(img.src); 
           setStep('FRAME');
         };
