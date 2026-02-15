@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
-  const [splitSize, setSplitSize] = useState(20);
+  const [splitSize, setSplitSize] = useState(25); // 기본 분할 크기를 25로 변경 (격자와 맞춤)
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageObjRef = useRef<HTMLImageElement | null>(null);
@@ -45,6 +45,13 @@ const App: React.FC = () => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  const paletteIndexMap = useMemo(() => {
+    if (!pixelData) return new Map();
+    const m = new Map();
+    pixelData.palette.forEach(p => m.set(p.hex, p.index));
+    return m;
+  }, [pixelData]);
 
   const exportAsJson = () => {
     if (!pixelData) return;
@@ -66,35 +73,87 @@ const App: React.FC = () => {
   const exportAsZip = async () => {
     if (!pixelData) return;
     const zip = new JSZip();
-    const { width, height, colors } = pixelData;
+    const { width, height, colors, palette } = pixelData;
+    const blockSize = 40; // 가이드 이미지에서 한 칸의 크기 (크게 저장하여 가독성 확보)
     
     for (let y = 0; y < height; y += splitSize) {
       for (let x = 0; x < width; x += splitSize) {
-        const c = document.createElement('canvas');
-        const ctx = c.getContext('2d')!;
         const curW = Math.min(splitSize, width - x);
         const curH = Math.min(splitSize, height - y);
-        c.width = curW; c.height = curH;
+        
+        const c = document.createElement('canvas');
+        const ctx = c.getContext('2d')!;
+        c.width = curW * blockSize;
+        c.height = curH * blockSize;
 
         for (let py = 0; py < curH; py++) {
           for (let px = 0; px < curW; px++) {
-            const idx = (y + py) * width + (x + px);
-            ctx.fillStyle = colors[idx];
-            ctx.fillRect(px, py, 1, 1);
+            const globalX = x + px;
+            const globalY = y + py;
+            const idx = globalY * width + globalX;
+            const color = colors[idx];
+            const pIdx = palette.findIndex(p => p.hex === color) + 1;
+
+            // 배경색 칠하기
+            ctx.fillStyle = color;
+            ctx.fillRect(px * blockSize, py * blockSize, blockSize, blockSize);
+
+            // 얇은 격자선
+            ctx.strokeStyle = "rgba(0,0,0,0.1)";
+            ctx.lineWidth = 0.5;
+            ctx.strokeRect(px * blockSize, py * blockSize, blockSize, blockSize);
+
+            // 숫자 그리기
+            ctx.fillStyle = getContrastColor(color);
+            ctx.font = `bold ${blockSize / 2.5}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(pIdx), px * blockSize + blockSize / 2, py * blockSize + blockSize / 2);
           }
         }
+
+        // 가이드용 메이저 그리드 (5칸마다 진한 선)
+        ctx.strokeStyle = "rgba(0,0,0,0.4)";
+        ctx.lineWidth = 2;
+        for (let gx = 0; gx <= curW; gx++) {
+          if ((x + gx) % 5 === 0) {
+            ctx.beginPath();
+            ctx.moveTo(gx * blockSize, 0);
+            ctx.lineTo(gx * blockSize, c.height);
+            ctx.stroke();
+          }
+        }
+        for (let gy = 0; gy <= curH; gy++) {
+          if ((y + gy) % 5 === 0) {
+            ctx.beginPath();
+            ctx.moveTo(0, gy * blockSize);
+            ctx.lineTo(c.width, gy * blockSize);
+            ctx.stroke();
+          }
+        }
+
         const blob = await new Promise<Blob | null>(r => c.toBlob(r));
-        if (blob) zip.file(`tile_${y/splitSize}_${x/splitSize}.png`, blob);
+        if (blob) zip.file(`guide_y${Math.floor(y/splitSize)}_x${Math.floor(x/splitSize)}.png`, blob);
       }
     }
-    zip.file("data.json", JSON.stringify({ palette: pixelData.palette, pixels: pixelData.colors }));
+
+    // 원본 1:1 픽셀 이미지도 포함
+    const orig = document.createElement('canvas');
+    orig.width = width; orig.height = height;
+    const octx = orig.getContext('2d')!;
+    colors.forEach((col, i) => { octx.fillStyle = col; octx.fillRect(i % width, Math.floor(i / width), 1, 1); });
+    const oblob = await new Promise<Blob | null>(r => orig.toBlob(r));
+    if (oblob) zip.file("original_pixel.png", oblob);
+
+    zip.file("palette_info.json", JSON.stringify({ palette: pixelData.palette }));
+    
     const content = await zip.generateAsync({ type: 'blob' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(content);
-    a.download = `town_pattern_${splitSize}px.zip`;
+    a.download = `town_art_guide_${Date.now()}.zip`;
     a.click();
     setShowExportMenu(false);
-    showToast("ZIP 압축 완료!");
+    showToast("가이드 ZIP 생성 완료!");
   };
 
   const startPixelation = async () => {
@@ -146,13 +205,6 @@ const App: React.FC = () => {
       ctx.restore();
     }
   }, [step, crop, canvasDim]);
-
-  const paletteIndexMap = useMemo(() => {
-    if (!pixelData) return new Map();
-    const m = new Map();
-    pixelData.palette.forEach(p => m.set(p.hex, p.index));
-    return m;
-  }, [pixelData]);
 
   const Sidebar = () => (
     <aside className="w-full lg:w-[260px] bg-[#030712] flex lg:flex-col shrink-0 border-r border-slate-900 z-50 overflow-x-auto lg:overflow-x-hidden">
@@ -214,7 +266,7 @@ const App: React.FC = () => {
                     <span className="bg-[#EC4899] text-white px-5 py-2 rounded-full font-black text-[11px] uppercase tracking-widest italic inline-block">OFFICIAL CREATIVE HUB</span>
                     <h1 className="text-5xl lg:text-8xl font-black italic tracking-tighter leading-[0.9]">Town Square Art Studio</h1>
                     <button onClick={() => { setActiveView('STUDIO'); setStep('MODE_SELECT'); }} 
-                            className="px-10 py-5 bg-[#EC4899] rounded-2xl font-black text-lg hover:bg-[#DB2777] transition-all">스튜디오 시작</button>
+                            className="px-10 py-5 bg-[#EC4899] rounded-2xl font-black text-lg hover:bg-[#DB2777] transition-all shadow-xl shadow-pink-900/30">스튜디오 시작</button>
                   </div>
                 </div>
               </div>
@@ -223,10 +275,10 @@ const App: React.FC = () => {
                 {step === 'MODE_SELECT' && (
                   <div className="flex-1 flex items-center justify-center grid grid-cols-1 md:grid-cols-2 gap-8">
                     <button onClick={() => { setStudioMode('PATTERN'); setStep('SETUP'); setCanvasDim({w:48, h:48}); }} className="bg-white p-16 rounded-[48px] shadow-xl border-4 border-transparent hover:border-[#EC4899] transition-all flex flex-col items-center group">
-                      <div className="text-5xl mb-8">🎨</div><h3 className="text-3xl font-black italic text-slate-900">픽셀 도안 제작</h3>
+                      <div className="text-5xl mb-8 group-hover:scale-110 transition-all">🎨</div><h3 className="text-3xl font-black italic text-slate-900">픽셀 도안 제작</h3>
                     </button>
                     <button onClick={() => { setStudioMode('BOOK_COVER'); setCanvasDim({w:150, h:84}); setStep('UPLOAD'); }} className="bg-white p-16 rounded-[48px] shadow-xl border-4 border-transparent hover:border-[#EC4899] transition-all flex flex-col items-center group">
-                      <div className="text-5xl mb-8">📖</div><h3 className="text-3xl font-black italic text-slate-900">북커버 제작</h3>
+                      <div className="text-5xl mb-8 group-hover:scale-110 transition-all">📖</div><h3 className="text-3xl font-black italic text-slate-900">북커버 제작</h3>
                     </button>
                   </div>
                 )}
@@ -246,7 +298,7 @@ const App: React.FC = () => {
 
                 {step === 'UPLOAD' && (
                   <div className="flex-1 flex items-center justify-center">
-                    <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer">
+                    <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-pink-500 transition-all">
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                         const f = e.target.files?.[0]; if (f) {
                           const r = new FileReader(); r.onload = (ev) => {
@@ -256,7 +308,7 @@ const App: React.FC = () => {
                         }
                       }} />
                       <div className="text-5xl mb-6">📸</div>
-                      <p className="font-black text-2xl text-slate-900">이미지를 선택하세요</p>
+                      <p className="font-black text-2xl text-slate-900 italic">이미지를 선택하세요</p>
                     </div>
                   </div>
                 )}
@@ -284,17 +336,20 @@ const App: React.FC = () => {
                       </div>
                     </div>
                     <div className="w-full lg:w-80 space-y-6 shrink-0">
-                      <div className="bg-white p-8 rounded-[40px] shadow-xl space-y-8">
+                      <div className="bg-white p-8 rounded-[40px] shadow-xl space-y-8 border border-slate-50">
                          <h3 className="font-black italic text-xl">Controls</h3>
                          {step==='FRAME' ? (
                            <>
-                             <input type="range" min="0.1" max="5" step="0.01" value={crop.scale} onChange={e=>setCrop({...crop, scale:Number(e.target.value)})} className="w-full" />
-                             <button onClick={()=>studioMode==='PATTERN'?startPixelation():setStep('TEXT')} className="w-full py-6 bg-[#EC4899] text-white rounded-3xl font-black">다음 단계</button>
+                             <div className="space-y-4">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">🔍 SCALE ZOOM</label>
+                                <input type="range" min="0.1" max="5" step="0.01" value={crop.scale} onChange={e=>setCrop({...crop, scale:Number(e.target.value)})} className="w-full accent-pink-500" />
+                             </div>
+                             <button onClick={()=>studioMode==='PATTERN'?startPixelation():setStep('TEXT')} className="w-full py-6 bg-[#EC4899] text-white rounded-3xl font-black shadow-lg hover:bg-[#DB2777] transition-all">다음 단계</button>
                            </>
                          ) : (
                            <>
-                             <button onClick={()=>{const n:TextLayer={id:`t-${Date.now()}`, text:'Text Here', x:50, y:50, size:14, color:'#000000'}; setTextLayers([...textLayers, n]); setSelectedTextId(n.id);}} className="w-full py-5 bg-slate-100 rounded-2xl font-black text-sm">+ 텍스트 추가</button>
-                             <button onClick={startPixelation} className="w-full py-6 bg-[#EC4899] text-white rounded-3xl font-black">변환 시작</button>
+                             <button onClick={()=>{const n:TextLayer={id:`t-${Date.now()}`, text:'Text Here', x:50, y:50, size:14, color:'#000000'}; setTextLayers([...textLayers, n]); setSelectedTextId(n.id);}} className="w-full py-5 bg-slate-100 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all">+ 텍스트 추가</button>
+                             <button onClick={startPixelation} className="w-full py-6 bg-[#EC4899] text-white rounded-3xl font-black shadow-lg hover:bg-[#DB2777] transition-all">변환 시작</button>
                            </>
                          )}
                       </div>
@@ -306,23 +361,23 @@ const App: React.FC = () => {
                   <div className="flex flex-col lg:flex-row gap-8 h-full min-h-0 animate-in fade-in overflow-hidden">
                     <div className="flex-1 flex flex-col gap-6 min-h-0 overflow-hidden">
                       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center justify-between shrink-0">
-                         <button onClick={()=>setStep(studioMode==='PATTERN'?'FRAME':'TEXT')} className="px-6 py-3 bg-slate-50 rounded-xl font-black text-xs">이전</button>
+                         <button onClick={()=>setStep(studioMode==='PATTERN'?'FRAME':'TEXT')} className="px-6 py-3 bg-slate-50 border border-slate-200 rounded-xl font-black text-xs text-slate-500 hover:bg-slate-100">이전</button>
                          <div className="flex items-center gap-3">
                             <button onClick={()=>setShowTipModal(true)} className="px-6 py-3 bg-orange-100 text-orange-600 rounded-xl font-black text-xs">💡 Tip</button>
                             <div className="bg-slate-100 p-1.5 rounded-xl flex items-center gap-3">
-                               <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black">-</button>
+                               <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black hover:bg-slate-200 rounded-lg">-</button>
                                <span className="text-[10px] font-black w-12 text-center">{zoom}%</span>
-                               <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black">+</button>
+                               <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black hover:bg-slate-200 rounded-lg">+</button>
                             </div>
                             <div className="relative">
-                              <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black">내보내기 {showExportMenu ? '▴' : '▾'}</button>
+                              <button onClick={() => setShowExportMenu(!showExportMenu)} className="px-10 py-4 bg-[#EC4899] text-white rounded-2xl font-black shadow-xl shadow-pink-900/20 hover:bg-[#DB2777] transition-all">내보내기 {showExportMenu ? '▴' : '▾'}</button>
                               {showExportMenu && (
-                                <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border p-2 z-[100]">
+                                <div className="absolute right-0 mt-3 w-64 bg-white rounded-2xl shadow-2xl border p-2 z-[100] animate-in slide-in-from-top-2">
                                   <div className="p-4 bg-slate-50 rounded-xl mb-2">
-                                    <label className="text-[10px] font-black text-slate-400 block mb-2 uppercase">분할 크기 (px)</label>
-                                    <input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-2 border rounded-lg text-center font-black" />
+                                    <label className="text-[10px] font-black text-slate-400 block mb-2 uppercase tracking-widest">분할 크기 (px)</label>
+                                    <input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-2 border rounded-lg text-center font-black outline-none focus:border-pink-500" />
                                   </div>
-                                  <button onClick={exportAsZip} className="w-full p-4 text-left hover:bg-slate-50 flex items-center gap-3 rounded-xl transition-colors"><span>📦</span> <span className="font-black text-sm">ZIP 분할 저장</span></button>
+                                  <button onClick={exportAsZip} className="w-full p-4 text-left hover:bg-slate-50 flex items-center gap-3 rounded-xl transition-colors"><span>📦</span> <span className="font-black text-sm">ZIP 가이드 저장</span></button>
                                   <button onClick={exportAsJson} className="w-full p-4 text-left hover:bg-slate-50 flex items-center gap-3 rounded-xl transition-colors"><span>📄</span> <span className="font-black text-sm">JSON 데이터 저장</span></button>
                                 </div>
                               )}
@@ -337,14 +392,31 @@ const App: React.FC = () => {
                            onMouseUp={()=>{isPanningRef.current=false; if(editorScrollRef.current) editorScrollRef.current.style.cursor='default';}}>
                         <div className="inline-block p-[200px]">
                           <div className="bg-white p-6 border-[8px] border-slate-900 shadow-2xl rounded-sm">
-                            <div className="pixel-grid" style={{ gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` }}>
+                            <div className="pixel-grid bg-slate-100" style={{ gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` }}>
                               {pixelData.colors.map((color, idx) => {
                                 const pId = paletteIndexMap.get(color);
                                 const pNum = pixelData.palette.findIndex(p => p.hex === color) + 1;
                                 const isSelected = activePaletteId === pId;
+                                
+                                const colIndex = idx % pixelData.width;
+                                const rowIndex = Math.floor(idx / pixelData.width);
+                                
+                                // 메이저 그리드 스타일 (5칸마다 진한 선)
+                                const borderRight = (colIndex + 1) % 5 === 0 ? '1.5px solid rgba(0,0,0,0.3)' : '0.5px solid rgba(0,0,0,0.1)';
+                                const borderBottom = (rowIndex + 1) % 5 === 0 ? '1.5px solid rgba(0,0,0,0.3)' : '0.5px solid rgba(0,0,0,0.1)';
+
                                 return (
-                                  <div key={idx} style={{ backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: zoom >= 250 ? Math.max(5, zoom / 70) + 'px' : '0px' }}
-                                       className={`pixel-item flex items-center justify-center font-black transition-none ${isSelected ? 'ring-2 ring-[#EC4899] scale-110 z-10 shadow-lg' : ''}`}
+                                  <div key={idx} 
+                                       style={{ 
+                                         backgroundColor: color, 
+                                         width: 'var(--cell-size)', 
+                                         height: 'var(--cell-size)', 
+                                         color: getContrastColor(color), 
+                                         fontSize: zoom >= 250 ? Math.max(5, zoom / 70) + 'px' : '0px',
+                                         borderRight,
+                                         borderBottom
+                                       }}
+                                       className={`pixel-item flex items-center justify-center font-black transition-none ${isSelected ? 'ring-2 ring-[#EC4899] scale-110 z-10 shadow-lg' : 'hover:opacity-80'}`}
                                        onClick={() => setActivePaletteId(isSelected ? null : pId)}>
                                     {zoom >= 250 && pNum}
                                   </div>
@@ -356,14 +428,14 @@ const App: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="w-full lg:w-[320px] bg-white rounded-[40px] p-8 shadow-xl overflow-hidden shrink-0 flex flex-col min-h-0">
-                      <h3 className="font-black mb-6 italic text-xl">🎨 Palette</h3>
+                    <div className="w-full lg:w-[320px] bg-white rounded-[40px] p-8 shadow-xl border border-slate-50 shrink-0 flex flex-col min-h-0">
+                      <h3 className="font-black mb-6 italic text-xl shrink-0">🎨 Palette</h3>
                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                         <div className="grid grid-cols-4 lg:grid-cols-1 gap-3">
                           {pixelData.palette.map((p, i) => (
                             <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} 
-                                 className={`flex items-center gap-4 p-3 rounded-2xl border-2 transition-all ${activePaletteId===p.index?'bg-pink-50 border-[#EC4899]':'border-transparent hover:bg-slate-50'}`}>
-                              <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs border" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div>
+                                 className={`flex items-center gap-4 p-3 rounded-2xl border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-pink-50 border-[#EC4899] shadow-md':'border-transparent hover:bg-slate-50'}`}>
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs border shadow-inner" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div>
                               <div className="hidden lg:block flex-1 min-w-0">
                                 <p className="text-[11px] font-black truncate text-slate-900">NO.{p.index}</p>
                                 <p className="text-[9px] font-mono text-slate-400 uppercase">{p.hex}</p>
@@ -377,25 +449,28 @@ const App: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-pulse"><div className="text-8xl">🚀</div><div className="font-black italic text-3xl text-slate-200 uppercase">{activeView} HUB 준비 중...</div></div>
+              <div className="flex-1 flex flex-col items-center justify-center gap-6 animate-pulse"><div className="text-8xl">🚀</div><div className="font-black italic text-3xl text-slate-200 uppercase tracking-widest">{activeView} HUB 준비 중...</div></div>
             )}
           </div>
         </div>
       </main>
 
       {showTipModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[1000] flex items-center justify-center p-6" onClick={() => setShowTipModal(false)}>
-          <div className="bg-white w-full max-w-2xl rounded-[48px] shadow-2xl overflow-hidden" onClick={e=>e.stopPropagation()}>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[1000] flex items-center justify-center p-6 animate-in fade-in" onClick={() => setShowTipModal(false)}>
+          <div className="bg-white w-full max-w-2xl rounded-[48px] shadow-2xl overflow-hidden animate-in zoom-in-95" onClick={e=>e.stopPropagation()}>
             <div className="p-12 border-b flex justify-between items-center bg-slate-50">
-               <h2 className="text-3xl font-black italic">ART STUDIO TIPS</h2>
-               <button onClick={() => setShowTipModal(false)} className="text-2xl font-black text-slate-400">✕</button>
+               <div>
+                 <h2 className="text-3xl font-black italic tracking-tighter">ART STUDIO TIPS</h2>
+                 <p className="text-[#EC4899] font-bold text-xs mt-1 uppercase tracking-widest">Master Guide System</p>
+               </div>
+               <button onClick={() => setShowTipModal(false)} className="w-12 h-12 bg-white rounded-full font-black text-slate-400 shadow-sm border hover:bg-slate-900 hover:text-white transition-all flex items-center justify-center">✕</button>
             </div>
             <div className="p-12 space-y-10">
-              <div className="bg-slate-50 p-8 rounded-[32px] border">
-                 <h4 className="font-black text-xl mb-2 italic">📂 저장 안내</h4>
-                 <p className="text-slate-500 text-sm">내보내기 버튼으로 {splitSize}px 분할 ZIP 파일을 다운로드 할 수 있습니다.</p>
+              <div className="bg-slate-50 p-8 rounded-[32px] border border-slate-100">
+                 <h4 className="font-black text-xl mb-2 italic flex items-center gap-2"><span>📂</span> 저장 안내</h4>
+                 <p className="text-slate-500 text-sm leading-relaxed">내보내기 버튼 클릭 시 <span className="text-[#EC4899] font-black underline">{splitSize}px 크기의 고해상도 가이드 도안</span>들이 포함된 ZIP 파일이 생성됩니다. 숫자가 크게 적혀 있어 따라 그리기가 편리합니다.</p>
               </div>
-              <img src={PALETTE_GUIDE_IMG} className="w-full h-auto rounded-3xl shadow-xl" alt="Guide" />
+              <img src={PALETTE_GUIDE_IMG} className="w-full h-auto rounded-3xl shadow-2xl border-8 border-slate-50" alt="Guide" />
             </div>
           </div>
         </div>
