@@ -234,24 +234,28 @@ const App: React.FC = () => {
                 {step === 'UPLOAD' && (
                   <div className="flex-1 flex items-center justify-center">
                     <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-4xl aspect-[16/8] bg-white rounded-[60px] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center cursor-pointer hover:border-pink-500 transition-all group">
-                      <input type="file" ref={fileInputRef} // input type="file" 부분의 onChange를 이렇게 바꾸세요.
-onChange={e=>{
-  const f=e.target.files?.[0]; 
-  if(f){ 
-    const r=new FileReader(); 
-    r.onload=ev=>{
-      const img = new Image();
-      img.src = ev.target?.result as string;
-      img.onload = () => {
-        imageObjRef.current = img; // 이 줄이 핵심입니다!
-        setUploadedImg(img.src); 
-        setStep('FRAME');
-      };
-    }; 
-    r.readAsDataURL(f); 
-  }
-}}
-                      }} className="hidden" accept="image/*" />
+                      <input 
+  type="file" 
+  ref={fileInputRef} 
+  onChange={e => {
+    const f = e.target.files?.[0]; 
+    if (f) { 
+      const r = new FileReader(); 
+      r.onload = ev => {
+        const img = new Image();
+        img.src = ev.target?.result as string;
+        img.onload = () => {
+          imageObjRef.current = img; // 아까 만든 Ref에 저장
+          setUploadedImg(img.src); 
+          setStep('FRAME');
+        };
+      }; 
+      r.readAsDataURL(f); 
+    }
+  }} 
+  className="hidden" 
+  accept="image/*" 
+/>
                       <div className="w-24 h-24 bg-pink-100 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-all">
                         <span className="text-5xl">📸</span>
                       </div>
