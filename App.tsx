@@ -789,162 +789,6 @@ const NicknameModal = () => {
         return (
           <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
             <div className="flex flex-col lg:flex-row gap-8 h-full">
-              
-              {/* 1. 왼쪽: Friends 리스트 섹션 */}
-              <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-                <div className="flex justify-between items-center mb-10">
-                  <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
-                  <button 
-                    onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")}
-                    className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm"
-                  >
-                    친구 등록하기
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Friends 카드는 나중에 DB 연동 후 map으로 출력 */}
-                    <p className="text-slate-500 text-sm italic">등록된 친구가 없습니다.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. 오른쪽: Discord 승인제 섹션 */}
-              <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-                <div className="flex flex-col items-center mb-10 text-center">
-                  <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">Discord</h2>
-                  
-                  {/* 일반 유저에게만 보이는 등록 신청 버튼 */}
-                  {role !== 'admin' && (
-                    <button 
-                      onClick={() => user ? setIsDiscordModalOpen(true) : alert("로그인이 필요합니다.")}
-                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
-                    >
-                      디스코드 홍보 신청하기
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-                  {/* 관리자일 때: 승인 대기 중인 신청 목록을 먼저 보여줌 */}
-                  {role === 'admin' && (
-                    <div className="mb-6 p-4 border border-pink-500/30 rounded-3xl bg-pink-500/5">
-                      <p className="text-[10px] font-black text-pink-500 uppercase mb-3 tracking-widest">승인 대기 목록 (Admin Only)</p>
-                      {/* 신청 건 예시 */}
-                      <div className="bg-black/40 border border-slate-800 rounded-2xl p-4 flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-white">서버 신청건</span>
-                        <div className="flex gap-2">
-                          <button className="px-3 py-1 bg-green-600 text-white text-[10px] font-black rounded-lg hover:bg-green-500">승인</button>
-                          <button className="px-3 py-1 bg-red-600 text-white text-[10px] font-black rounded-lg hover:bg-red-500">거절</button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest text-center">커뮤니티 목록</p>
-                  {/* 공통: 승인 완료된 디스코드 목록 */}
-                  <div className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-lg">💬</div>
-                      <span className="font-bold text-white text-sm">Official Server</span>
-                    </div>
-                    <button className="px-5 py-2 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        );
-          
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 카드 샘플 - 나중에 DB 연동 시 이 부분을 map으로 돌립니다 */}
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-black/40 border border-slate-800 rounded-[32px] p-6 flex gap-6 hover:border-pink-500/30 transition-all group">
-                  <div className="w-32 h-44 bg-slate-800 rounded-2xl flex items-center justify-center text-xs text-slate-600 font-bold border border-slate-700 group-hover:border-pink-500/20 transition-all">프로필 사진</div>
-                  <div className="flex-1 flex flex-col justify-between py-1">
-                    <div>
-                      <h4 className="text-xl font-black text-white mb-2 italic">닉네임</h4>
-                      <div className="flex gap-1.5 mb-3">
-                        <span className="text-[10px] bg-pink-500/10 text-pink-500 px-2 py-0.5 rounded-lg border border-pink-500/20 font-bold">#Casual</span>
-                      </div>
-                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">자기소개 문구가 여기에 표시됩니다...</p>
-                    </div>
-                    <div className="bg-black p-2 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-400">ID: Hippo#0927</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* 오른쪽: Discord (도안 디자인) */}
-        <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col">
-          <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
-          <div className="space-y-4">
-            {[1, 2].map((i) => (
-              <div key={i} className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:bg-indigo-500/5 transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-indigo-500/20 rounded-full border border-indigo-500/20 flex items-center justify-center text-xl">💬</div>
-                  <span className="font-black text-white text-sm">디스코드 이름</span>
-                </div>
-                <button className="px-6 py-2 border-2 border-white rounded-xl text-xs font-black hover:bg-white hover:text-black transition-all">Join</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-      default: return null;
-    }
-  };
-  // --- 디스코드 등록 신청 모달 ---
-  // 1. 상태값 정의 부분 (App 함수 상단 상태값 모여있는 곳에 추가)
-  const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
-
-  const renderMainContent = () => {
-    switch (activeView) {
-      case 'HOME':
-        return (
-          <div className="flex-1 p-6 lg:p-12 overflow-y-auto custom-scrollbar">
-            <div className="max-w-7xl mx-auto space-y-12">
-              <section className="relative h-[500px] rounded-[60px] overflow-hidden group">
-                <img src="https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80" className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" alt="Banner" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent flex flex-col justify-end p-12 lg:p-20">
-                  <h2 className="text-6xl lg:text-8xl font-black italic text-white mb-6 tracking-tighter leading-none uppercase">TownHub<br /><span className="text-[#EC4899]">Creative</span></h2>
-                  <p className="text-slate-400 max-w-xl font-bold text-lg leading-relaxed mb-10">당신만의 픽셀 아트를 만들고 커뮤니티와 공유하세요.</p>
-                  <div className="flex gap-4">
-                    <button onClick={() => setActiveView('STUDIO')} className="px-12 py-5 bg-white text-slate-900 rounded-full font-black text-xl hover:bg-pink-500 hover:text-white transition-all shadow-2xl active:scale-95">시작하기</button>
-                  </div>
-                </div>
-              </section>
-            </div>
-          </div>
-        );
-      case 'STUDIO':
-        return (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden relative">
-              {step === 'UPLOAD' && renderUploadStep()}
-              {step === 'PROCESS' && renderProcessStep()}
-              {step === 'RESULT' && renderResultStep()}
-            </div>
-          </div>
-        );
-      case 'DESIGN_FEED':
-        return (
-          <div className="flex-1 p-12 flex flex-col items-center justify-center text-center">
-            <div className="w-24 h-24 bg-slate-900 rounded-[32px] flex items-center justify-center text-4xl mb-8 animate-bounce">🏗️</div>
-            <h2 className="text-4xl font-black italic text-white mb-4 uppercase">Design Feed</h2>
-            <p className="text-slate-500 font-bold max-w-md">업데이트 준비 중입니다!</p>
-          </div>
-        );
-      case 'FRIENDS_COMMUNITY':
-        return (
-          <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
-            <div className="flex flex-col lg:flex-row gap-8 h-full">
               {/* 왼쪽: Friends */}
               <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
                 <div className="flex justify-between items-center mb-10">
@@ -964,13 +808,28 @@ const NicknameModal = () => {
                 <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
                   <p className="text-slate-500 text-center text-xs">승인된 서버가 없습니다.</p>
                 </div>
+              </div>
             </div>
           </div>
         );
       default:
         return null;
     }
-  }; // renderMainContent 함수가 여기서 정확히 끝나야 함
+  };
+
+  // --- 추가된 친구 등록 모달 (오류 방지용) ---
+  const FriendModal = () => {
+    if (!isFriendModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 max-w-md w-full text-center">
+          <h3 className="text-2xl font-black text-white mb-4 italic uppercase">Friends Registration</h3>
+          <p className="text-slate-400 mb-8">친구 등록 기능은 현재 준비 중입니다.</p>
+          <button onClick={() => setIsFriendModalOpen(false)} className="w-full py-4 bg-pink-500 text-white rounded-xl font-bold">확인</button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#020617] overflow-hidden font-sans select-none text-slate-300">
@@ -986,8 +845,9 @@ const NicknameModal = () => {
         </div>
       </main>
       
-      {/* --- 모달들 호출부 --- */}
+      {/* 모달 호출부 (여기에 다 모여있어야 합니다) */}
       <DiscordModal />
+      <FriendModal />
       <NicknameModal />
       <PolicyModal />
       <UpdateLogsModal />
