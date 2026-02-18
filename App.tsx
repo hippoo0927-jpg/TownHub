@@ -949,15 +949,15 @@ const NicknameModal = () => {
         );
         // --- 디스코드 등록 신청 모달 ---
         
-const FriendModal = () => {
-    // 아직 친구 기능이 준비 중이라는 걸 보여주는 아주 간단한 창이에요.
+// 친구 모달 설명서
+  const FriendModal = () => {
     return (
       <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl text-center">
           <h3 className="text-2xl font-black text-white mb-4">👫 친구 커뮤니티</h3>
           <p className="text-slate-400 mb-6">친구 기능은 현재 준비 중이에요!<br/>조금만 기다려 주세요.</p>
           <button 
-            onClick={() => { /* 나중에 닫기 기능을 넣을 거예요 */ }}
+            onClick={() => { /* 나중에 기능을 넣을 거예요 */ }}
             className="w-full bg-slate-700 text-white py-3 rounded-xl"
           >
             닫기
@@ -967,6 +967,7 @@ const FriendModal = () => {
     );
   };
 
+  // 디스코드 모달 설명서
   const DiscordModal = () => {
     if (!isDiscordModalOpen) return null;
     return (
@@ -997,7 +998,7 @@ const FriendModal = () => {
                 alert("신청되었습니다! 관리자 승인 후 등록됩니다.");
                 setIsDiscordModalOpen(false);
               }}
-              className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black shadow-lg shadow-indigo-500/20"
+              className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black"
             >
               신청하기
             </button>
@@ -1006,12 +1007,14 @@ const FriendModal = () => {
       </div>
     );
   };
+
+  // 실제 화면에 보여지는 부분
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#020617] overflow-hidden font-sans select-none text-slate-300">
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {toast && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs animate-in slide-in-from-top-4">
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs">
             {toast}
           </div>
         )}
@@ -1036,6 +1039,6 @@ const FriendModal = () => {
       </main>
     </div>
   );
-};
+}; // 👈 App 컴포넌트 닫기
 
-export default App;
+export default App; // 👈 마지막 내보내기
