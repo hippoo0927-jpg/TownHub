@@ -65,6 +65,10 @@ const App: React.FC = () => {
   const [nickname, setNickname] = useState<string>('');
   const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
+  // 친구 및 디스코드 모달 상태 
+  const [isFriendModalOpen, setIsFriendModalOpen] = useState(false); 
+  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
+  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
   
   // 본인의 구글 이메일을 여기에 입력하세요 (관리자 지정)
   const ADMIN_EMAIL = "hippoo0927@gmail.com"; 
@@ -960,14 +964,13 @@ const NicknameModal = () => {
                 <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
                   <p className="text-slate-500 text-center text-xs">승인된 서버가 없습니다.</p>
                 </div>
-              </div>
             </div>
           </div>
         );
       default:
         return null;
     }
-  };
+  }; // renderMainContent 함수가 여기서 정확히 끝나야 함
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#020617] overflow-hidden font-sans select-none text-slate-300">
