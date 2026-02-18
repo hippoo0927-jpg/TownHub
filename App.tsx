@@ -71,13 +71,10 @@ const App: React.FC = () => {
   const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
   
   // 본인의 구글 이메일을 여기에 입력하세요 (관리자 지정)
-  // 1. 관리자 및 모달 상태 추가
-  const adminEmails = ["hippoo0927@gmail.com"]; // ★ 본인 이메일로 수정하세요
+  const adminEmails = ["hippoo0927@gmail.com"]; 
   const [isAdmin, setIsAdmin] = useState(false);
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
   const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
-  
-  // 2. 디스코드 데이터 상태
   const [approvedDiscords, setApprovedDiscords] = useState<any[]>([]);
   const [pendingDiscords, setPendingDiscords] = useState<any[]>([]);
   const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
@@ -1029,12 +1026,14 @@ const NicknameModal = () => {
       
       {/* 모달 호출부 (여기에 다 모여있어야 합니다) */}
       <DiscordModal />
-      <FriendModal />
-      <NicknameModal />
-      <PolicyModal />
-      <UpdateLogsModal />
-    </div>
-  );
-};
+        <FriendModal />
+        <NicknameModal />
+        <PolicyModal />
+        <UpdateLogsModal />
+      </div>
+    );
+  }; // <--- 이 중괄호가 App 함수를 닫아주는 역할 (누락되었을 확률 높음)
+
+  export default App;
 
 export default App;
