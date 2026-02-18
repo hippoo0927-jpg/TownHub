@@ -782,84 +782,76 @@ const NicknameModal = () => {
           </div>
         );
       case 'FRIENDS_COMMUNITY':
-  return (
-    <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
-      <div className="flex flex-col lg:flex-row gap-8 h-full">
-        
-        {/* 1. 왼쪽: Friends 리스트 섹션 */}
-        <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
-            <button 
-              onClick={() => {
-                if(!user) return alert("로그인이 필요합니다.");
-                // 친구 등록 모달 열기 로직
-              }}
-              className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm"
-            >
-              친구 등록하기
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 여기에 DB에서 가져온 친구 카드들이 표시됩니다 */}
-              <p className="text-slate-500 text-sm italic">등록된 친구가 없습니다.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. 오른쪽: Discord 승인제 섹션 */}
-        <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-          <div className="flex flex-col items-center mb-10">
-            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">Discord</h2>
-            
-            {/* [추가된 버튼]: 일반 유저에게만 보이는 등록 신청 버튼 */}
-            {role !== 'admin' && (
-              <button 
-                onClick={() => {
-                  if(!user) return alert("로그인이 필요합니다.");
-                  // 디스코드 신청 모달 열기 로직
-                }}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
-              >
-                디스코드 홍보 신청하기
-              </button>
-            )}
-          </div>
-
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-            {/* 관리자일 때: 승인 대기 중인 신청 목록을 먼저 보여줌 */}
-            {role === 'admin' && (
-              <div className="mb-6 p-4 border border-pink-500/30 rounded-3xl bg-pink-500/5">
-                <p className="text-[10px] font-black text-pink-500 uppercase mb-3 tracking-widest">승인 대기 목록 (Admin Only)</p>
-                {/* 대기 아이템 예시 */}
-                <div className="bg-black/40 border border-slate-800 rounded-2xl p-4 flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-white">신청건 #1</span>
-                  <div className="flex gap-2">
-                    <button className="px-3 py-1 bg-green-600 text-[10px] font-black rounded-lg">승인</button>
-                    <button className="px-3 py-1 bg-red-600 text-[10px] font-black rounded-lg">거절</button>
+        return (
+          <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
+            <div className="flex flex-col lg:flex-row gap-8 h-full">
+              
+              {/* 1. 왼쪽: Friends 리스트 섹션 */}
+              <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
+                  <button 
+                    onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")}
+                    className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm"
+                  >
+                    친구 등록하기
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Friends 카드는 나중에 DB 연동 후 map으로 출력 */}
+                    <p className="text-slate-500 text-sm italic">등록된 친구가 없습니다.</p>
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* 공통: 승인 완료된 디스코드 목록 */}
-            <p className="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">커뮤니티 목록</p>
-            {[1, 2].map((i) => (
-              <div key={i} className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-lg">💬</div>
-                  <span className="font-bold text-white text-sm">Official Server</span>
+              {/* 2. 오른쪽: Discord 승인제 섹션 */}
+              <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+                <div className="flex flex-col items-center mb-10 text-center">
+                  <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">Discord</h2>
+                  
+                  {/* 일반 유저에게만 보이는 등록 신청 버튼 */}
+                  {role !== 'admin' && (
+                    <button 
+                      onClick={() => user ? setIsDiscordModalOpen(true) : alert("로그인이 필요합니다.")}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
+                    >
+                      디스코드 홍보 신청하기
+                    </button>
+                  )}
                 </div>
-                <button className="px-5 py-2 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button>
-              </div>
-            ))}
-          </div>
-        </div>
 
-      </div>
-    </div>
-  );
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                  {/* 관리자일 때: 승인 대기 중인 신청 목록을 먼저 보여줌 */}
+                  {role === 'admin' && (
+                    <div className="mb-6 p-4 border border-pink-500/30 rounded-3xl bg-pink-500/5">
+                      <p className="text-[10px] font-black text-pink-500 uppercase mb-3 tracking-widest">승인 대기 목록 (Admin Only)</p>
+                      {/* 신청 건 예시 */}
+                      <div className="bg-black/40 border border-slate-800 rounded-2xl p-4 flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-white">서버 신청건</span>
+                        <div className="flex gap-2">
+                          <button className="px-3 py-1 bg-green-600 text-white text-[10px] font-black rounded-lg hover:bg-green-500">승인</button>
+                          <button className="px-3 py-1 bg-red-600 text-white text-[10px] font-black rounded-lg hover:bg-red-500">거절</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest text-center">커뮤니티 목록</p>
+                  {/* 공통: 승인 완료된 디스코드 목록 */}
+                  <div className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-lg">💬</div>
+                      <span className="font-bold text-white text-sm">Official Server</span>
+                    </div>
+                    <button className="px-5 py-2 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        );
           
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -904,6 +896,49 @@ const NicknameModal = () => {
       default: return null;
     }
   };
+  // --- 디스코드 등록 신청 모달 ---
+  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
+  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
+
+  const DiscordModal = () => {
+    if (!isDiscordModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 max-w-md w-full">
+          <h3 className="text-2xl font-black text-white mb-6 italic uppercase">Discord 홍보 신청</h3>
+          <div className="space-y-4">
+            <input 
+              className="w-full p-4 bg-slate-800 rounded-xl text-white text-sm outline-none focus:ring-2 ring-indigo-500" 
+              placeholder="서버 이름" 
+              onChange={(e) => setDiscordData({...discordData, name: e.target.value})}
+            />
+            <input 
+              className="w-full p-4 bg-slate-800 rounded-xl text-white text-sm outline-none focus:ring-2 ring-indigo-500" 
+              placeholder="디스코드 초대 링크" 
+              onChange={(e) => setDiscordData({...discordData, link: e.target.value})}
+            />
+            <textarea 
+              className="w-full p-4 bg-slate-800 rounded-xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500" 
+              placeholder="간단한 서버 소개"
+              onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}
+            ></textarea>
+          </div>
+          <div className="flex gap-3 mt-6">
+            <button onClick={() => setIsDiscordModalOpen(false)} className="flex-1 py-4 bg-slate-800 text-white rounded-xl font-bold">취소</button>
+            <button 
+              onClick={() => {
+                alert("신청되었습니다! 관리자 승인 후 등록됩니다.");
+                setIsDiscordModalOpen(false);
+              }}
+              className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black shadow-lg shadow-indigo-500/20"
+            >
+              신청하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#020617] overflow-hidden font-sans select-none text-slate-300">
@@ -918,6 +953,7 @@ const NicknameModal = () => {
           {renderMainContent()}
         </div>
       </main>
+      <DiscordModal />
       <PolicyModal />
       <UpdateLogsModal />
     </div>
