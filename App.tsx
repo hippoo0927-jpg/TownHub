@@ -442,7 +442,8 @@ const App: React.FC = () => {
         YouTube 구독하기
       </button>
       <BmcButton />
-  </aside> // 👈 </div> 를 지우고 바로 </aside>가 오게 하세요.
+    </div> {/* 👈 이 닫는 div 태그가 반드시 있어야 합니다! */}
+  </aside>
 );
 
   const PolicyModal = () => {
