@@ -948,7 +948,24 @@ const NicknameModal = () => {
           </div>
         );
         // --- 디스코드 등록 신청 모달 ---
-
+        
+const FriendModal = () => {
+    // 아직 친구 기능이 준비 중이라는 걸 보여주는 아주 간단한 창이에요.
+    return (
+      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl text-center">
+          <h3 className="text-2xl font-black text-white mb-4">👫 친구 커뮤니티</h3>
+          <p className="text-slate-400 mb-6">친구 기능은 현재 준비 중이에요!<br/>조금만 기다려 주세요.</p>
+          <button 
+            onClick={() => { /* 나중에 닫기 기능을 넣을 거예요 */ }}
+            className="w-full bg-slate-700 text-white py-3 rounded-xl"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const DiscordModal = () => {
     if (!isDiscordModalOpen) return null;
