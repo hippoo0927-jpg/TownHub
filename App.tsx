@@ -994,24 +994,32 @@ const NicknameModal = () => {
     <div className="flex flex-col lg:flex-row h-screen bg-[#020617] overflow-hidden font-sans select-none text-slate-300">
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        {toast && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs animate-in slide-in-from-top-4">{toast}</div>}
+        {toast && (
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs animate-in slide-in-from-top-4">
+            {toast}
+          </div>
+        )}
         <header className="px-6 py-4 lg:px-12 lg:py-10 shrink-0 flex flex-col lg:flex-row items-center justify-between gap-6 border-b border-slate-900/50">
-           <h2 className="text-[10px] font-black italic text-slate-600 uppercase tracking-[0.4em] flex items-center gap-4"><span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>{activeView === 'STUDIO' ? `${step} DASHBOARD` : activeView === 'HOME' ? 'MAIN DASHBOARD' : `${activeView} DASHBOARD`}</h2>
-           {activeView === 'STUDIO' && <Stepper />}
+          <h2 className="text-[10px] font-black italic text-slate-600 uppercase tracking-[0.4em] flex items-center gap-4">
+            <span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>
+            {activeView === 'STUDIO' ? `${step} DASHBOARD` : activeView === 'HOME' ? 'MAIN DASHBOARD' : `${activeView} DASHBOARD`}
+          </h2>
+          {activeView === 'STUDIO' && <Stepper />}
         </header>
+
         <div className="flex-1 overflow-hidden relative flex flex-col">
           {renderMainContent()}
         </div>
-      </main>
-      
-      {/* 모달 호출부 (여기에 다 모여있어야 합니다) */}
-      <DiscordModal />
+
+        {/* 모달들을 main 태그 안쪽 맨 아래에 배치 */}
+        <DiscordModal />
         <FriendModal />
         <NicknameModal />
         <PolicyModal />
         <UpdateLogsModal />
-      </div>
-    );
-  }; // <--- 이 중괄호가 App 함수를 닫아주는 역할 (누락되었을 확률 높음)
+      </main> {/* main 태그를 여기서 닫습니다 */}
+    </div> {/* 가장 바깥쪽 flex div를 여기서 닫습니다 */}
+  );
+}; // App 함수 종료
 
-  export default App;
+export default App; // 파일의 최하단에 딱 한 번만 존재해야 함
