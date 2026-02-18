@@ -1015,5 +1015,3 @@ const NicknameModal = () => {
   }; // <--- 이 중괄호가 App 함수를 닫아주는 역할 (누락되었을 확률 높음)
 
   export default App;
-
-export default App;
