@@ -442,8 +442,7 @@ const App: React.FC = () => {
         YouTube 구독하기
       </button>
       <BmcButton />
-    </div>
-  </aside>
+  </aside> // 👈 </div> 를 지우고 바로 </aside>가 오게 하세요.
 );
 
   const PolicyModal = () => {
