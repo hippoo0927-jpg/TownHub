@@ -469,27 +469,63 @@ const formatPaletteIndex = (index: number) => {
                             </div>
                          </div>
                       </div>
-                      <div ref={editorScrollRef} className="flex-1 bg-slate-900/20 rounded-[64px] lg:rounded-[100px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10 backdrop-blur-sm" style={{ '--cell-size': `${zoom / 20}px` } as any}>
-                        <div className="inline-block p-[100px] lg:p-[300px]">
-                          <div className="bg-slate-900 p-8 lg:p-16 border-[12px] lg:border-[20px] border-black shadow-2xl rounded-sm">
-                            <div className="pixel-grid border-none shadow-none" style={{ gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` }}>
-                              {pixelData.colors.map((color, idx) => {
-                                const pId = paletteIndexMap.get(color); const pNum = pixelData.palette.findIndex(p => p.hex === color) + 1;
-                                const gameCoord = formatPaletteIndex(pNum);
-                                const isSelected = activePaletteId === pId; const colIndex = idx % pixelData.width; const rowIndex = Math.floor(idx / pixelData.width);
-                                const borderRight = (colIndex + 1) % 5 === 0 ? '1px solid rgba(255,255,255,0.2)' : '0.5px solid rgba(255,255,255,0.05)';
-                                const borderBottom = (rowIndex + 1) % 5 === 0 ? '1px solid rgba(255,255,255,0.2)' : '0.5px solid rgba(255,255,255,0.05)';
-                                return (
-                                  <div key={idx} style={{ backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: zoom >= 250 ? Math.max(7, zoom / 60) + 'px' : '0px', borderRight, borderBottom }}
-                                       className={`pixel-item flex items-center justify-center font-black transition-none ${isSelected ? 'ring-2 lg:ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl shadow-[#EC4899]/30' : 'hover:opacity-90'}`}
-                                       onClick={() => setActivePaletteId(isSelected ? null : pId)}>{zoom >= 250 && gameCoord} {/* pNum 대신 gameCoord 사용 */}</div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                      /* EDITOR 부분 수정 코드 */
+<div 
+  ref={editorScrollRef} 
+  className="flex-1 bg-slate-900/20 rounded-[64px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10"
+  style={{ 
+    // 모든 수치 계산을 부모 레벨에서 CSS 변수로 처리
+    '--cell-size': `${zoom / 20}px`,
+    '--font-size': zoom >= 250 ? `${Math.max(7, zoom / 60)}px` : '0px'
+  } as any}
+>
+  <div className="inline-block p-[100px] lg:p-[300px]">
+    <div className="bg-slate-900 p-8 lg:p-16 border-[12px] lg:border-[20px] border-black shadow-2xl rounded-sm">
+      <div 
+        className="pixel-grid" 
+        style={{ 
+          display: 'grid',
+          gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` 
+        }}
+      >
+        {pixelData.colors.map((color, idx) => {
+          const pId = paletteIndexMap.get(color);
+          const isSelected = activePaletteId === pId;
+          const colIndex = idx % pixelData.width;
+          const rowIndex = Math.floor(idx / pixelData.width);
+
+          // 5단위 보더 표시 로직을 CSS 변수나 단순화된 방식으로 처리
+          const isFifthCol = (colIndex + 1) % 5 === 0;
+          const isFifthRow = (rowIndex + 1) % 5 === 0;
+
+          return (
+            <div 
+              key={idx} 
+              style={{ 
+                backgroundColor: color, 
+                width: 'var(--cell-size)', 
+                height: 'var(--cell-size)',
+                // 글자색과 폰트 크기도 변수로 관리
+                color: getContrastColor(color),
+                fontSize: 'var(--font-size)',
+                // 보더 계산을 루프 밖에서 정의한 조건으로 단순화
+                borderRight: isFifthCol ? '1px solid rgba(255,255,255,0.2)' : '0.5px solid rgba(255,255,255,0.05)',
+                borderBottom: isFifthRow ? '1px solid rgba(255,255,255,0.2)' : '0.5px solid rgba(255,255,255,0.05)'
+              }}
+              className={`pixel-item flex items-center justify-center font-black ${
+                isSelected ? 'ring-2 lg:ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl' : 'hover:opacity-90'
+              }`}
+              onClick={() => setActivePaletteId(isSelected ? null : pId)}
+            >
+              {/* 번호 렌더링 최적화 */}
+              {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+</div>
 
                     {/* 팔레트 패널 - 동그란 버튼으로 토글 */}
                     <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 ease-out flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0 lg:overflow-hidden'}`}>
