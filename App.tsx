@@ -560,16 +560,15 @@ const formatPaletteIndex = (index: number) => {
                       🎨
                     </button>
                     {/* 모바일에서 열렸을 때 배경 어둡게 */}
-                    /* 560번 줄 근처: 에디터 렌더링이 끝나는 지점 */
-                  {showPalette && (
+                   {showPalette && (
                     <div 
                       className="fixed inset-0 bg-black/60 z-[190] lg:hidden animate-in fade-in" 
                       onClick={() => setShowPalette(false)} 
                     />
                   )}
-                </div> // <-- 픽셀 그리드 등을 감싸는 div의 끝
-              ) // <-- 삼항 연산자 (A) 부분의 끝 소괄호
-            ) : ( // <-- 여기서 567번 줄 에러 발생 지점: 삼항 연산자의 : (B) 시작
+                </div>
+              )
+            ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-10">
                 <div className="w-24 h-24 border-4 border-[#EC4899]/20 border-t-[#EC4899] rounded-full animate-spin"></div>
                 <p className="text-slate-400 font-medium">도안을 생성하고 있습니다...</p>
