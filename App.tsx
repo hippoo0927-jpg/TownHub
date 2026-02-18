@@ -139,21 +139,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 관리자 권한 및 실시간 데이터 감시
-  useEffect(() => {
-    if (user && adminEmails.includes(user.email || "")) setIsAdmin(true);
-    
-    const db = getFirestore();
-    // 1. 승인된 서버 목록 로드
-    const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), orderBy("createdAt", "desc")), (snap) => {
-      setApprovedDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    // 2. 관리자용 대기 목록 로드
-    const unsubPending = onSnapshot(query(collection(db, "discord_requests"), orderBy("createdAt", "desc")), (snap) => {
-      setPendingDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => { unsubApproved(); unsubPending(); };
-  }, [user]);
 
   // 디스코드 신청 제출
   const submitDiscordRequest = async () => {
