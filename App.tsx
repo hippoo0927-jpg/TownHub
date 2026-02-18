@@ -782,50 +782,84 @@ const NicknameModal = () => {
           </div>
         );
       case 'FRIENDS_COMMUNITY':
-        return (
-          <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
-            <div className="flex flex-col lg:flex-row gap-8 h-full">
-              {/* Friends 리스트 */}
-              <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-                <div className="flex justify-between items-center mb-10">
-                  <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
-                  <button className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg">친구 등록</button>
-                </div>
-                {/* 리스트 생략 (기존 유지) */}
-              </div>
+  return (
+    <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
+      <div className="flex flex-col lg:flex-row gap-8 h-full">
+        
+        {/* 1. 왼쪽: Friends 리스트 섹션 */}
+        <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
+            <button 
+              onClick={() => {
+                if(!user) return alert("로그인이 필요합니다.");
+                // 친구 등록 모달 열기 로직
+              }}
+              className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm"
+            >
+              친구 등록하기
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 여기에 DB에서 가져온 친구 카드들이 표시됩니다 */}
+              <p className="text-slate-500 text-sm italic">등록된 친구가 없습니다.</p>
+            </div>
+          </div>
+        </div>
 
-              {/* Discord 승인제 섹션 */}
-              <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col">
-                <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
-                
-                <div className="space-y-4">
-                  {/* 일반 유저는 신청 버튼, 관리자는 승인 대기 목록이 보임 */}
-                  {role === 'admin' ? (
-                    <p className="text-pink-500 font-bold text-center text-xs mb-4">관리자: 승인 대기중인 신청을 관리하세요.</p>
-                  ) : (
-                    <button className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm mb-6 hover:bg-indigo-700 transition-all">디스코드 등록 신청</button>
-                  )}
+        {/* 2. 오른쪽: Discord 승인제 섹션 */}
+        <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+          <div className="flex flex-col items-center mb-10">
+            <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">Discord</h2>
+            
+            {/* [추가된 버튼]: 일반 유저에게만 보이는 등록 신청 버튼 */}
+            {role !== 'admin' && (
+              <button 
+                onClick={() => {
+                  if(!user) return alert("로그인이 필요합니다.");
+                  // 디스코드 신청 모달 열기 로직
+                }}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
+              >
+                디스코드 홍보 신청하기
+              </button>
+            )}
+          </div>
 
-                  {/* 샘플 아이템 (role === 'admin'일 때만 승인 버튼 노출) */}
-                  <div className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center">💬</div>
-                      <span className="font-bold text-white text-sm">신청한 유저닉네임</span>
-                    </div>
-                    {role === 'admin' ? (
-                      <div className="flex gap-2">
-                        <button className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-[10px] font-black">승인</button>
-                        <button className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-black">거절</button>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-slate-500">대기 중</span>
-                    )}
+          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+            {/* 관리자일 때: 승인 대기 중인 신청 목록을 먼저 보여줌 */}
+            {role === 'admin' && (
+              <div className="mb-6 p-4 border border-pink-500/30 rounded-3xl bg-pink-500/5">
+                <p className="text-[10px] font-black text-pink-500 uppercase mb-3 tracking-widest">승인 대기 목록 (Admin Only)</p>
+                {/* 대기 아이템 예시 */}
+                <div className="bg-black/40 border border-slate-800 rounded-2xl p-4 flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-white">신청건 #1</span>
+                  <div className="flex gap-2">
+                    <button className="px-3 py-1 bg-green-600 text-[10px] font-black rounded-lg">승인</button>
+                    <button className="px-3 py-1 bg-red-600 text-[10px] font-black rounded-lg">거절</button>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* 공통: 승인 완료된 디스코드 목록 */}
+            <p className="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">커뮤니티 목록</p>
+            {[1, 2].map((i) => (
+              <div key={i} className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-lg">💬</div>
+                  <span className="font-bold text-white text-sm">Official Server</span>
+                </div>
+                <button className="px-5 py-2 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button>
+              </div>
+            ))}
           </div>
-        );
+        </div>
+
+      </div>
+    </div>
+  );
           
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
