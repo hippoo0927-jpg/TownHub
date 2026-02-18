@@ -6,6 +6,7 @@
     j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-NZG5HD9P');</script>
+
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-M43ZMK3GE5"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
@@ -42,11 +43,13 @@
             overflow: hidden;
             touch-action: manipulation;
         }
+        /* Custom Scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
         
+        /* Utility Classes */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -57,8 +60,7 @@
             border: 1px solid #E2E8F0;
         }
         .pixel-item {
-            width: 100%;
-            height: 100%;
+            width: 100%; height: 100%;
             aspect-ratio: 1 / 1;
             display: flex;
             align-items: center;
@@ -91,7 +93,9 @@
 <body>
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZG5HD9P"
     height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
     <div id="root"></div>
+
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
