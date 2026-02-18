@@ -345,7 +345,7 @@ const App: React.FC = () => {
         { id: 'HOME', label: 'Home', icon: '🏠' },
         { id: 'STUDIO', label: 'Art Studio', icon: '🎨' },
         { id: 'DESIGN_FEED', label: 'Design Feed', icon: '🖼️' },
-        { id: 'FRIENDS_COMMUNITY', label: 'Friends & Shop', icon: '💎' },
+        { id: 'FRIENDS_COMMUNITY', label: 'Friends & DISCORD', icon: '💎' },
       ].map((item) => (
         <button
           key={item.id}
