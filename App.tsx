@@ -324,58 +324,81 @@ const App: React.FC = () => {
 
   // UI 컴포넌트들
   const Sidebar = () => (
-    <aside className="w-full lg:w-[280px] bg-[#020617] flex flex-col shrink-0 border-b lg:border-r border-slate-900 z-50 lg:h-full overflow-hidden shadow-2xl">
-      <div className="px-6 py-4 lg:p-10 flex flex-row lg:flex-col h-full justify-between items-center lg:items-stretch">
-        <div className="flex flex-row lg:flex-col items-center lg:items-stretch gap-6 lg:gap-14">
-          <div className="flex items-center gap-4 text-white cursor-pointer group" onClick={() => { setActiveView('HOME'); setStep('MODE_SELECT'); }}>
-            <div className="w-10 h-10 bg-gradient-to-br from-[#F472B6] to-[#DB2777] rounded-xl flex items-center justify-center font-black text-xl shadow-[0_4px_20px_-4px_rgba(244,114,182,0.6)]">T</div>
-            <span className="font-black italic text-2xl hidden sm:inline">TownHub</span>
-          </div>
-          <nav className="flex flex-row lg:flex-col gap-2 lg:gap-3">
-            {[
-              { id: 'HOME', label: 'Home', icon: '🏠' },
-              { id: 'STUDIO', label: 'Art Studio', icon: '🎨' },
-              { id: 'DESIGN_FEED', label: 'Feed', icon: '🖼️' },
-              { id: 'FRIENDS_COMMUNITY', label: 'Friends & Shop', icon: '💎' }
-            ].map(item => (
-              <button key={item.id} onClick={() => { setActiveView(item.id as MainView); if(item.id === 'STUDIO') setStep('MODE_SELECT'); }}
-                className={`flex items-center gap-3 lg:gap-5 px-3 py-2 lg:px-6 lg:py-4 rounded-xl lg:rounded-[24px] font-black text-[11px] lg:text-sm transition-all whitespace-nowrap ${activeView === item.id ? 'bg-[#EC4899]/20 text-[#EC4899] ring-1 ring-[#EC4899]/30 shadow-[0_0_20px_-5px_rgba(236,72,153,0.3)]' : 'text-slate-500 hover:text-slate-200 hover:bg-slate-900/50'}`}
-              >
-                <span className="text-base lg:text-xl">{item.icon}</span>
-                <span className="hidden sm:inline">{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-        <div className="hidden lg:flex flex-col space-y-6 pt-10 border-t border-slate-900/50">
-  {user ? (
-    /* 로그인 했을 때: 구글 프로필 사진과 이름이 나옵니다 */
-    <div className="flex items-center gap-5 p-4 bg-slate-900/40 rounded-[28px] border border-slate-800/50">
-      <div className="w-14 h-14 rounded-2xl bg-slate-800 overflow-hidden ring-2 ring-pink-500/30">
-        <img src={user.photoURL || ""} alt="Profile" className="w-full h-full object-cover" />
+  <aside className="fixed bottom-0 left-0 right-0 lg:relative lg:w-[420px] lg:h-full bg-slate-950/50 backdrop-blur-3xl border-t lg:border-t-0 lg:border-r border-slate-900/50 p-6 lg:p-12 flex flex-row lg:flex-col items-center lg:items-stretch justify-between lg:justify-start gap-8 z-[100]">
+    {/* 로고 섹션 */}
+    <div className="flex items-center gap-6 group cursor-pointer" onClick={() => setActiveView('HOME')}>
+      <div className="w-14 h-14 bg-gradient-to-br from-[#EC4899] to-[#8B5CF6] rounded-[22px] flex items-center justify-center shadow-2xl shadow-pink-500/20 group-hover:scale-110 group-active:scale-95 transition-all duration-500">
+        <span className="text-white font-black text-2xl italic tracking-tighter">T</span>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-white font-black text-sm italic truncate">{user.displayName}</p>
-        <button onClick={handleLogout} className="text-[#F472B6] font-black text-[10px] uppercase hover:text-white transition-colors">Logout</button>
+      <div className="hidden lg:block">
+        <h1 className="text-2xl font-black italic text-white tracking-tighter leading-none uppercase">TownHub</h1>
+        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1.5 flex items-center gap-2">
+          <span className="w-1 h-1 bg-pink-500 rounded-full animate-pulse"></span>
+          Art District
+        </p>
       </div>
     </div>
-  ) : (
-    /* 로그인 안 했을 때: 로그인 버튼이 나옵니다 */
-    <button onClick={handleLogin} className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-[#EC4899] hover:text-white transition-all">
-      Login with Google
-    </button>
-  )}
-  
-  {/* 아래 버튼들은 로그인 여부와 상관없이 항상 보입니다 */}
-  <button onClick={() => window.open('https://www.youtube.com/@Hippoo_Hanuu', '_blank')} className="w-full py-4 bg-[#EF4444] text-white rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-red-600 active:scale-95 transition-all">
-    YouTube 구독하기
-  </button>
-  <BmcButton />
-</div>
+
+    {/* 메뉴 네비게이션 */}
+    <nav className="flex lg:flex-col items-center lg:items-stretch gap-3 lg:mt-12">
+      {[
+        { id: 'HOME', label: 'Home', icon: '🏠' },
+        { id: 'STUDIO', label: 'Art Studio', icon: '🎨' },
+        { id: 'DESIGN_FEED', label: 'Design Feed', icon: '🖼️' },
+        { id: 'FRIENDS_COMMUNITY', label: 'Friends & Shop', icon: '💎' },
+      ].map((item) => (
+        <button
+          key={item.id}
+          onClick={() => setActiveView(item.id as MainView)}
+          className={`flex items-center gap-5 px-6 py-4 rounded-[24px] transition-all duration-500 group relative overflow-hidden ${
+            activeView === item.id 
+              ? 'bg-white text-slate-900 shadow-2xl shadow-white/10 scale-105' 
+              : 'text-slate-500 hover:text-white hover:bg-slate-900/50'
+          }`}
+        >
+          <span className="text-xl group-hover:rotate-12 transition-transform duration-500">{item.icon}</span>
+          <span className="hidden lg:block font-black text-xs uppercase tracking-widest">{item.label}</span>
+          {activeView === item.id && (
+            <div className="absolute right-4 w-1.5 h-1.5 bg-pink-500 rounded-full"></div>
+          )}
+        </button>
+      ))}
+    </nav>
+
+    {/* 로그인 및 하단 버튼 섹션 (에러 원인이었던 부분) */}
+    <div className="hidden lg:flex flex-col space-y-6 pt-10 mt-auto border-t border-slate-900/50">
+      {user ? (
+        /* 로그인 완료 상태 */
+        <div className="flex items-center gap-5 p-4 bg-slate-900/40 rounded-[28px] border border-slate-800/50">
+          <div className="w-14 h-14 rounded-2xl bg-slate-800 overflow-hidden ring-2 ring-pink-500/30">
+            <img src={user.photoURL || ""} alt="Profile" className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-black text-sm italic truncate">{user.displayName}</p>
+            <button onClick={handleLogout} className="text-[#F472B6] font-black text-[10px] uppercase hover:text-white transition-colors">Logout</button>
+          </div>
         </div>
-      </div>
-    </aside>
-  );
+      ) : (
+        /* 로그인 미완료 상태 */
+        <button 
+          onClick={handleLogin} 
+          className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-[#EC4899] hover:text-white transition-all active:scale-95"
+        >
+          Login with Google
+        </button>
+      )}
+
+      {/* 기타 버튼들 */}
+      <button 
+        onClick={() => window.open('https://www.youtube.com/@Hippoo_Hanuu', '_blank')} 
+        className="w-full py-4 bg-[#EF4444] text-white rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-red-600 active:scale-95 transition-all"
+      >
+        YouTube 구독하기
+      </button>
+      <BmcButton />
+    </div>
+  </aside>
+);
 
   const PolicyModal = () => {
     if (!activePolicy) return null;
