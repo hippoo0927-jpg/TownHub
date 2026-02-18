@@ -25,7 +25,6 @@ const formatPaletteIndex = (index: number) => {
 
 /**
  * Buy Me a Coffee 커스텀 버튼 컴포넌트
- * 유튜브 버튼과 시각적 통일감을 유지하면서 시그니처 컬러(#FFDD00) 적용
  */
 const BmcButton: React.FC = () => {
   return (
@@ -79,21 +78,30 @@ const App: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  /**
+   * 업데이트 로그 가져오기 (GitHub Raw 데이터 사용)
+   */
   useEffect(() => {
     const fetchLogs = async () => {
+      setIsLogsLoading(true);
       try {
         const response = await fetch('https://raw.githubusercontent.com/hippoo0927-jpg/TownHub/main/updates.txt');
         if (!response.ok) throw new Error('Network response was not ok');
         const text = await response.text();
+        
         const parsedLogs = text
           .trim()
           .split('\n')
+          .filter(line => line.trim() !== '')
           .map(line => {
-            const [date, content] = line.split('/');
-            return { date: date?.trim(), content: content?.trim() };
+            if (line.includes('/')) {
+              const [date, content] = line.split('/');
+              return { date: date.trim(), content: content.trim() };
+            }
+            return { date: 'Latest', content: line.trim() };
           })
-          .filter(log => log.date && log.content)
-          .slice(0, 3);
+          .slice(0, 5); // 최신 5개 항목만
+
         setUpdateLogs(parsedLogs);
       } catch (error) {
         console.error("Failed to fetch update logs:", error);
@@ -419,28 +427,32 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
                 <div className="space-y-16">
                   <h3 className="text-4xl lg:text-5xl font-black text-white italic flex items-center gap-6">
                     <span className="w-16 h-1 bg-[#EC4899]"></span> UPDATE LOG
                   </h3>
-                  <div className="space-y-8">
+                  <div className="space-y-6">
                     {isLogsLoading ? (
-                      <div className="p-10 bg-slate-900/20 rounded-[40px] border border-slate-900 text-slate-500 font-black italic text-xl animate-pulse">Syncing data...</div>
+                      <div className="p-10 bg-slate-900/20 rounded-[40px] border border-slate-900 text-slate-500 font-black italic text-xl animate-pulse">업데이트 내역을 불러오는 중입니다...</div>
                     ) : updateLogs.length > 0 ? (
                       updateLogs.map((log, idx) => (
-                        <div key={idx} className="flex flex-col gap-2 p-10 bg-slate-900/30 rounded-[40px] border border-slate-900 hover:border-[#EC4899]/30 transition-all group">
-                          <span className="text-[#EC4899] font-black font-mono text-xl tracking-tighter uppercase">{log.date}</span>
-                          <span className="text-slate-300 text-2xl font-bold group-hover:text-white transition-colors">{log.content}</span>
+                        <div key={idx} className="flex items-start gap-5 p-8 bg-slate-900/30 rounded-[40px] border border-slate-900 hover:border-[#EC4899]/30 transition-all group">
+                          <span className="text-3xl mt-1">🚀</span>
+                          <div className="flex flex-col">
+                             <span className="text-[#EC4899] font-black font-mono text-sm tracking-tighter uppercase mb-1">{log.date}</span>
+                             <span className="text-slate-200 text-xl font-bold group-hover:text-white transition-colors">{log.content}</span>
+                          </div>
                         </div>
                       ))
                     ) : (
-                      <div className="p-10 bg-slate-900/20 rounded-[40px] border border-slate-900 text-slate-600 italic text-xl">공지사항이 없습니다.</div>
+                      <div className="p-10 bg-slate-900/20 rounded-[40px] border border-slate-900 text-slate-600 italic text-xl">업데이트 내역을 불러올 수 없습니다.</div>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* 가이드 팁 섹션 복구 및 풍성하게 추가 (사이즈 권장 삭제) */}
+              {/* 가이드 팁 섹션 */}
               <div className="mt-48 bg-gradient-to-br from-slate-900/50 to-transparent p-12 lg:p-24 rounded-[80px] border border-slate-900">
                  <h3 className="text-4xl lg:text-6xl font-black text-white italic mb-20 text-center lg:text-left">Art Studio <span className="text-[#EC4899]">Guide & Tips</span></h3>
                  <div className="grid md:grid-cols-2 gap-16 lg:gap-24">
