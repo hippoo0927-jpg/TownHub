@@ -24,7 +24,7 @@ const formatPaletteIndex = (index: number) => {
 };
 
 /**
- * Buy Me a Coffee 커스텀 버튼 컴포넌트
+ * Buy Me a Coffee 커스텀 버튼
  */
 const BmcButton: React.FC = () => {
   return (
@@ -57,12 +57,10 @@ const App: React.FC = () => {
   const [splitSize, setSplitSize] = useState(25);
   const [showPalette, setShowPalette] = useState(true);
   
-  // 약관 및 정책 모달 상태
   const [activePolicy, setActivePolicy] = useState<PolicyType>(null);
-
-  // 업데이트 로그 상태
   const [updateLogs, setUpdateLogs] = useState<UpdateLog[]>([]);
   const [isLogsLoading, setIsLogsLoading] = useState(true);
+  const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
 
   // 2. Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,15 +70,12 @@ const App: React.FC = () => {
   const frameContainerRef = useRef<HTMLDivElement>(null);
   const editorScrollRef = useRef<HTMLDivElement>(null);
 
-  // 3. 유틸리티 및 API
+  // 3. 유틸리티
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
 
-  /**
-   * 업데이트 로그 가져오기 (GitHub Raw 데이터 사용)
-   */
   useEffect(() => {
     const fetchLogs = async () => {
       setIsLogsLoading(true);
@@ -88,23 +83,16 @@ const App: React.FC = () => {
         const response = await fetch('https://raw.githubusercontent.com/hippoo0927-jpg/TownHub/main/updates.txt');
         if (!response.ok) throw new Error('Network response was not ok');
         const text = await response.text();
-        
-        const parsedLogs = text
-          .trim()
-          .split('\n')
-          .filter(line => line.trim() !== '')
-          .map(line => {
-            if (line.includes('/')) {
-              const [date, content] = line.split('/');
-              return { date: date.trim(), content: content.trim() };
-            }
-            return { date: 'Latest', content: line.trim() };
-          })
-          .slice(0, 5); // 최신 5개 항목만
-
+        const parsedLogs = text.trim().split('\n').filter(line => line.trim() !== '').map(line => {
+          if (line.includes('/')) {
+            const [date, content] = line.split('/');
+            return { date: date.trim(), content: content.trim() };
+          }
+          return { date: 'Latest', content: line.trim() };
+        });
         setUpdateLogs(parsedLogs);
       } catch (error) {
-        console.error("Failed to fetch update logs:", error);
+        console.error("Failed to fetch logs:", error);
       } finally {
         setIsLogsLoading(false);
       }
@@ -128,7 +116,7 @@ const App: React.FC = () => {
     setCrop(prev => ({ ...prev, scale: Math.max(scaleW, scaleH), x: 0, y: 0 }));
   };
 
-  // 4. 이벤트 핸들러 (Drag/Drop Engine)
+  // 4. 드래그 엔진
   const handleDragStart = (e: any, isText: boolean = false, textId: string | null = null) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -158,7 +146,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 5. 핵심 엔진: ZIP Export
+  // 5. 핵심 엔진: ZIP Export (5x5 보조선 포함)
   const exportAsZip = async () => {
     if (!pixelData || isExporting) return;
     setIsExporting(true);
@@ -175,23 +163,50 @@ const App: React.FC = () => {
           const ctx = c.getContext('2d')!;
           c.width = curW * blockSize;
           c.height = curH * blockSize;
+          
           for (let py = 0; py < curH; py++) {
             for (let px = 0; px < curW; px++) {
-              const idx = (y + py) * width + (x + px);
+              const globalX = x + px;
+              const globalY = y + py;
+              const idx = globalY * width + globalX;
               const color = colors[idx];
               const pIdx = palette.findIndex(p => p.hex === color) + 1;
               const gameCoord = formatPaletteIndex(pIdx);
+              
+              // 픽셀 배경
               ctx.fillStyle = color;
               ctx.fillRect(px * blockSize, py * blockSize, blockSize, blockSize);
-              ctx.strokeStyle = "rgba(0,0,0,0.15)";
+              
+              // 기본 1px 그리드
+              ctx.strokeStyle = "rgba(0,0,0,0.1)";
               ctx.lineWidth = 0.5;
               ctx.strokeRect(px * blockSize, py * blockSize, blockSize, blockSize);
+
+              // 5x5 강조 그리드 (굵고 어두운 선)
+              if ((globalX + 1) % 5 === 0) {
+                ctx.strokeStyle = "rgba(0,0,0,0.4)";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo((px + 1) * blockSize, py * blockSize);
+                ctx.lineTo((px + 1) * blockSize, (py + 1) * blockSize);
+                ctx.stroke();
+              }
+              if ((globalY + 1) % 5 === 0) {
+                ctx.strokeStyle = "rgba(0,0,0,0.4)";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(px * blockSize, (py + 1) * blockSize);
+                ctx.lineTo((px + 1) * blockSize, (py + 1) * blockSize);
+                ctx.stroke();
+              }
+
+              // 좌표 텍스트
               const contrastColor = getContrastColor(color);
               ctx.font = `bold ${blockSize / 3.5}px sans-serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.strokeStyle = contrastColor === 'white' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
-              ctx.lineWidth = 3;
+              ctx.lineWidth = 2.5;
               ctx.strokeText(gameCoord, px * blockSize + blockSize / 2, py * blockSize + blockSize / 2);
               ctx.fillStyle = contrastColor;
               ctx.fillText(gameCoord, px * blockSize + blockSize / 2, py * blockSize + blockSize / 2);
@@ -207,6 +222,7 @@ const App: React.FC = () => {
       colors.forEach((col, i) => { octx.fillStyle = col; octx.fillRect(i % width, Math.floor(i / width), 1, 1); });
       const oblob = await new Promise<Blob | null>(r => orig.toBlob(r));
       if (oblob) zip.file("original_pixel.png", oblob);
+      
       const content = await zip.generateAsync({ type: 'blob' });
       const url = window.URL.createObjectURL(content);
       const link = document.createElement('a');
@@ -220,7 +236,7 @@ const App: React.FC = () => {
     }
   };
 
-  // 6. 핵심 엔진: Pixelation Process
+  // 6. 핵심 엔진: 변환 로직
   const startPixelation = async () => {
     if (!previewCanvasRef.current) return;
     setIsProcessing(true);
@@ -269,14 +285,14 @@ const App: React.FC = () => {
     }
   }, [step, crop, canvasDim, textLayers]);
 
-  // UI 컴포넌트: 사이드바
+  // UI 컴포넌트들
   const Sidebar = () => (
     <aside className="w-full lg:w-[280px] bg-[#020617] flex flex-col shrink-0 border-b lg:border-r border-slate-900 z-50 lg:h-full overflow-hidden shadow-2xl">
       <div className="px-6 py-4 lg:p-10 flex flex-row lg:flex-col h-full justify-between items-center lg:items-stretch">
         <div className="flex flex-row lg:flex-col items-center lg:items-stretch gap-6 lg:gap-14">
           <div className="flex items-center gap-4 text-white cursor-pointer group" onClick={() => { setActiveView('HOME'); setStep('MODE_SELECT'); }}>
             <div className="w-10 h-10 bg-gradient-to-br from-[#F472B6] to-[#DB2777] rounded-xl flex items-center justify-center font-black text-xl shadow-[0_4px_20px_-4px_rgba(244,114,182,0.6)]">T</div>
-            <span className="font-black italic text-2xl tracking-tighter hidden sm:inline">TownHub</span>
+            <span className="font-black italic text-2xl hidden sm:inline">TownHub</span>
           </div>
           <nav className="flex flex-row lg:flex-col gap-2 lg:gap-3">
             {[
@@ -294,7 +310,6 @@ const App: React.FC = () => {
             ))}
           </nav>
         </div>
-        
         <div className="hidden lg:flex flex-col space-y-6 pt-10 border-t border-slate-900/50">
            <div className="flex items-center gap-5 p-4 bg-slate-900/40 rounded-[28px] border border-slate-800/50">
               <div className="w-14 h-14 rounded-2xl bg-slate-800 overflow-hidden ring-2 ring-slate-800">
@@ -305,33 +320,19 @@ const App: React.FC = () => {
                  <p className="text-[#F472B6] font-black text-[10px] uppercase tracking-widest mt-0.5">Master Artisan</p>
               </div>
            </div>
-           
            <button onClick={() => window.open('https://www.youtube.com/@Hippoo_Hanuu', '_blank')} className="w-full py-4 bg-[#EF4444] text-white rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-red-600 active:scale-95 transition-all">YouTube 구독하기</button>
-           
-           <div className="mt-1">
-              <BmcButton />
-           </div>
+           <BmcButton />
         </div>
       </div>
     </aside>
   );
 
-  // 정책 모달
   const PolicyModal = () => {
     if (!activePolicy) return null;
     const contentMap = {
-      TERMS: {
-        title: "이용약관",
-        text: "Town Hub는 이미지 변환 도구이며, 생성된 결과물의 저작권 책임은 사용자에게 있습니다. 본 서비스를 통해 생성된 도안을 부적절한 용도로 사용하거나 타인의 저작권을 침해하는 행위는 엄격히 금지됩니다."
-      },
-      PRIVACY: {
-        title: "개인정보 처리방침",
-        text: "본 서비스는 서버에 이미지를 저장하지 않으며 모든 작업은 브라우저 로컬에서 수행됩니다. 어떠한 민감 정보도 수집하지 않습니다."
-      },
-      DISCLAIMER: {
-        title: "면책사항",
-        text: "결과물의 정확성을 100% 보장하지 않으며 게임 업데이트에 따라 차이가 발생할 수 있습니다. 제작 전 최종 검토를 권장합니다."
-      }
+      TERMS: { title: "이용약관", text: "Town Hub는 이미지 변환 도구이며, 생성된 결과물의 저작권 책임은 사용자에게 있습니다. 생성된 도안을 상업적으로 무단 배포하는 행위는 금지됩니다." },
+      PRIVACY: { title: "개인정보 처리방침", text: "본 서비스는 서버에 어떠한 이미지도 저장하지 않으며 모든 작업은 브라우저 로컬 환경에서 수행됩니다. 사용자 정보 수집을 하지 않습니다." },
+      DISCLAIMER: { title: "면책사항", text: "본 변환 결과는 원본 이미지에 따라 실제 인게임 결과와 차이가 발생할 수 있습니다. 제작 전 최종 검토를 권장합니다." }
     };
     const current = contentMap[activePolicy];
     return (
@@ -341,6 +342,36 @@ const App: React.FC = () => {
           <h3 className="text-3xl lg:text-4xl font-black italic text-white mb-8 border-l-4 border-[#EC4899] pl-6 uppercase tracking-tighter">{current.title}</h3>
           <p className="text-slate-400 text-lg lg:text-xl leading-relaxed whitespace-pre-wrap">{current.text}</p>
           <button onClick={() => setActivePolicy(null)} className="mt-12 w-full py-5 bg-white text-slate-900 rounded-3xl font-black text-lg hover:bg-[#EC4899] hover:text-white transition-all">확인</button>
+        </div>
+      </div>
+    );
+  };
+
+  /**
+   * 업데이트 로그 전체 내역 모달
+   */
+  const UpdateLogsModal = () => {
+    if (!isLogsModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setIsLogsModalOpen(false)}>
+        <div className="bg-slate-900 border border-slate-800 rounded-[56px] p-10 lg:p-16 max-w-4xl w-full max-h-[85vh] shadow-[0_0_100px_rgba(0,0,0,0.5)] relative flex flex-col animate-in zoom-in-95 duration-300 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <button onClick={() => setIsLogsModalOpen(false)} className="absolute top-10 right-10 text-slate-500 hover:text-white transition-colors text-2xl">✕</button>
+          <h3 className="text-4xl lg:text-5xl font-black italic text-white mb-10 border-l-4 border-[#EC4899] pl-6 uppercase tracking-tighter">Town Hub <span className="text-[#EC4899]">History</span></h3>
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-4">
+             {updateLogs.map((log, idx) => (
+               <div key={idx} className="flex flex-col md:flex-row md:items-center gap-4 p-8 bg-slate-800/40 rounded-[32px] border border-slate-800 hover:border-slate-700 transition-all">
+                  <div className="md:w-32 shrink-0">
+                    <span className="text-[#EC4899] font-black font-mono text-xs uppercase tracking-widest">{log.date}</span>
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-slate-200 text-lg font-bold leading-snug">{log.content}</span>
+                  </div>
+               </div>
+             ))}
+          </div>
+          
+          <button onClick={() => setIsLogsModalOpen(false)} className="mt-10 w-full py-6 bg-white text-slate-900 rounded-[32px] font-black text-xl hover:bg-[#EC4899] hover:text-white transition-all">Close History</button>
         </div>
       </div>
     );
@@ -384,65 +415,40 @@ const App: React.FC = () => {
         return (
           <div className="min-h-full flex flex-col pt-10 lg:pt-32 pb-20 px-6 lg:px-20 overflow-y-auto custom-scrollbar no-scrollbar">
             <div className="max-w-7xl mx-auto w-full flex-1">
-              <div className="text-center mb-24 space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-1000">
-                <div className="inline-block px-6 py-2 bg-pink-500/10 border border-pink-500/20 rounded-full text-pink-500 font-black text-[11px] tracking-[0.4em] uppercase mb-4 shadow-xl shadow-pink-500/5">Open Beta Version</div>
-                <h2 className="text-5xl lg:text-[140px] font-black italic tracking-tighter text-white leading-[0.85]">
-                  TOWN <span className="text-[#EC4899]">SQUARE</span><br/>
-                  <span className="text-slate-700">ART STUDIO</span>
-                </h2>
-                <p className="text-slate-400 text-lg lg:text-3xl font-medium max-w-3xl mx-auto leading-relaxed">
-                  상상을 현실로 만드는 가장 완벽한 방법.<br/>
-                  <span className="text-white">Town Hub의 정밀한 픽셀 엔진</span>을 지금 경험해보세요.
-                </p>
+              <div className="text-center mb-24 space-y-10 animate-in fade-in duration-1000">
+                <div className="inline-block px-6 py-2 bg-pink-500/10 border border-pink-500/20 rounded-full text-pink-500 font-black text-[11px] tracking-[0.4em] uppercase mb-4 shadow-xl">Open Beta Version</div>
+                <h2 className="text-5xl lg:text-[140px] font-black italic tracking-tighter text-white leading-[0.85]">TOWN <span className="text-[#EC4899]">SQUARE</span><br/><span className="text-slate-700">ART STUDIO</span></h2>
+                <p className="text-slate-400 text-lg lg:text-3xl font-medium max-w-3xl mx-auto leading-relaxed">상상을 현실로 만드는 가장 완벽한 방법.<br/><span className="text-white">Town Hub의 정밀한 픽셀 엔진</span>을 지금 경험해보세요.</p>
                 <div className="flex flex-col items-center gap-8 mt-14">
-                  <button onClick={() => { setActiveView('STUDIO'); setStep('MODE_SELECT'); }}
-                    className="px-16 py-8 bg-[#EC4899] text-white rounded-[40px] lg:rounded-[60px] font-black text-2xl lg:text-4xl hover:scale-105 transition-all shadow-[0_0_80px_rgba(236,72,153,0.4)] transform active:scale-95 group relative overflow-hidden">
-                    <span className="relative z-10">스튜디오 시작하기</span>
-                    <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" />
-                  </button>
-                  <div className="lg:hidden w-full max-w-[320px]">
-                    <BmcButton />
-                  </div>
+                  <button onClick={() => { setActiveView('STUDIO'); setStep('MODE_SELECT'); }} className="px-16 py-8 bg-[#EC4899] text-white rounded-[40px] lg:rounded-[60px] font-black text-2xl lg:text-4xl hover:scale-105 transition-all shadow-[0_0_80px_rgba(236,72,153,0.4)] transform active:scale-95 group relative overflow-hidden"><span className="relative z-10">스튜디오 시작하기</span><div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity" /></button>
+                  <div className="lg:hidden w-full max-w-[320px]"><BmcButton /></div>
                 </div>
               </div>
-
+              
               <div className="mt-48 grid lg:grid-cols-2 gap-24 border-t border-slate-900 pt-32">
                 <div className="space-y-16">
-                  <h3 className="text-4xl lg:text-5xl font-black text-white italic flex items-center gap-6">
-                    <span className="w-16 h-1 bg-[#EC4899]"></span> FAQ
-                  </h3>
+                  <h3 className="text-4xl lg:text-5xl font-black text-white italic flex items-center gap-6"><span className="w-16 h-1 bg-[#EC4899]"></span> FAQ</h3>
                   <div className="space-y-12">
-                    <div className="group bg-slate-900/20 p-8 rounded-[40px] border border-slate-900 hover:border-pink-500/20 transition-all">
-                      <h4 className="text-[#EC4899] font-black text-2xl mb-5 group-hover:translate-x-2 transition-transform">Q. 이미지가 초록색/왜곡되어 보입니다.</h4>
-                      <p className="text-slate-400 text-xl leading-relaxed font-medium">
-                        Town Hub는 Redmean 색차 공식을 적용하여 파란색/녹색 왜곡을 최소화했습니다. 
-                        원본 이미지의 대비가 강할수록 더욱 정확한 픽셀 매핑이 이루어집니다.
-                      </p>
-                    </div>
-                    <div className="group bg-slate-900/20 p-8 rounded-[40px] border border-slate-900 hover:border-pink-500/20 transition-all">
-                      <h4 className="text-[#EC4899] font-black text-2xl mb-5 group-hover:translate-x-2 transition-transform">Q. 저장되는 ZIP 파일에는 무엇이 있나요?</h4>
-                      <p className="text-slate-400 text-xl leading-relaxed font-medium">
-                        사용자가 설정한 그리드 사이즈로 분할된 가이드 이미지(좌표 포함)와 전체 원본 픽셀 데이터가 압축되어 제공됩니다.
-                      </p>
-                    </div>
+                    <div className="group bg-slate-900/20 p-8 rounded-[40px] border border-slate-900 hover:border-pink-500/20 transition-all"><h4 className="text-[#EC4899] font-black text-2xl mb-5 group-hover:translate-x-2 transition-transform">Q. 이미지가 초록색/왜곡되어 보입니다.</h4><p className="text-slate-400 text-xl leading-relaxed font-medium">Town Hub는 Redmean 색차 공식을 적용하고 파란색 가중치를 강화했습니다. 원본 이미지의 대비가 강할수록 더욱 정확한 매핑이 이루어집니다.</p></div>
+                    <div className="group bg-slate-900/20 p-8 rounded-[40px] border border-slate-900 hover:border-pink-500/20 transition-all"><h4 className="text-[#EC4899] font-black text-2xl mb-5 group-hover:translate-x-2 transition-transform">Q. 저장되는 ZIP 파일에는 무엇이 있나요?</h4><p className="text-slate-400 text-xl leading-relaxed font-medium">그리드 사이즈로 분할된 가이드 이미지(좌표 및 5x5 보조선 포함)와 전체 원본 픽셀 데이터가 압축되어 제공됩니다.</p></div>
                   </div>
                 </div>
-
+                
                 <div className="space-y-16">
-                  <h3 className="text-4xl lg:text-5xl font-black text-white italic flex items-center gap-6">
-                    <span className="w-16 h-1 bg-[#EC4899]"></span> UPDATE LOG
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 onClick={() => setIsLogsModalOpen(true)} className="text-4xl lg:text-5xl font-black text-white italic flex items-center gap-6 cursor-pointer hover:text-[#EC4899] transition-colors group">
+                      <span className="w-16 h-1 bg-[#EC4899]"></span> LATEST UPDATES
+                      <span className="text-sm not-italic font-bold text-slate-600 group-hover:translate-x-2 transition-transform">View All ➔</span>
+                    </h3>
+                  </div>
                   <div className="space-y-6">
                     {isLogsLoading ? (
                       <div className="p-10 bg-slate-900/20 rounded-[40px] border border-slate-900 text-slate-500 font-black italic text-xl animate-pulse">업데이트 내역을 불러오는 중입니다...</div>
                     ) : updateLogs.length > 0 ? (
-                      updateLogs.map((log, idx) => (
+                      updateLogs.slice(0, 3).map((log, idx) => (
                         <div key={idx} className="flex items-start gap-5 p-8 bg-slate-900/30 rounded-[40px] border border-slate-900 hover:border-[#EC4899]/30 transition-all group">
                           <span className="text-3xl mt-1">🚀</span>
-                          <div className="flex flex-col">
-                             <span className="text-[#EC4899] font-black font-mono text-sm tracking-tighter uppercase mb-1">{log.date}</span>
-                             <span className="text-slate-200 text-xl font-bold group-hover:text-white transition-colors">{log.content}</span>
-                          </div>
+                          <div className="flex flex-col"><span className="text-[#EC4899] font-black font-mono text-sm tracking-tighter uppercase mb-1">{log.date}</span><span className="text-slate-200 text-xl font-bold group-hover:text-white transition-colors">{log.content}</span></div>
                         </div>
                       ))
                     ) : (
@@ -452,68 +458,24 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* 가이드 팁 섹션 */}
               <div className="mt-48 bg-gradient-to-br from-slate-900/50 to-transparent p-12 lg:p-24 rounded-[80px] border border-slate-900">
-                 <h3 className="text-4xl lg:text-6xl font-black text-white italic mb-20 text-center lg:text-left">Art Studio <span className="text-[#EC4899]">Guide & Tips</span></h3>
+                 <h3 className="text-4xl lg:text-6xl font-black text-white italic mb-20">Art Studio <span className="text-[#EC4899]">Guide & Tips</span></h3>
                  <div className="grid md:grid-cols-2 gap-16 lg:gap-24">
-                    <div className="space-y-6 group">
-                       <div className="text-5xl lg:text-6xl mb-4 transform group-hover:scale-110 transition-transform">💡</div>
-                       <h5 className="text-2xl lg:text-3xl font-black text-white italic">01. 선명도를 높이는 대비 조절</h5>
-                       <p className="text-slate-400 text-lg lg:text-xl leading-relaxed">
-                          원본 이미지의 <span className="text-white font-bold">대비(Contrast)를 높여보세요.</span> 대비가 강할수록 타운의 한정된 팔레트 내에서 훨씬 선명하고 뚜렷한 픽셀 도안이 생성됩니다.
-                       </p>
-                    </div>
-                    <div className="space-y-6 group">
-                       <div className="text-5xl lg:text-6xl mb-4 transform group-hover:scale-110 transition-transform">🎨</div>
-                       <h5 className="text-2xl lg:text-3xl font-black text-white italic">02. 단순한 색감의 승리</h5>
-                       <p className="text-slate-400 text-lg lg:text-xl leading-relaxed">
-                          색상이 너무 복잡하거나 그라데이션이 과하면 게임 내 팔레트 제한으로 인해 왜곡될 수 있습니다. <span className="text-[#EC4899] font-bold">단순하고 명확한 색감의 이미지</span>를 사용하는 것이 제작 후 만족도가 훨씬 높습니다.
-                       </p>
-                    </div>
-                    <div className="space-y-6 group">
-                       <div className="text-5xl lg:text-6xl mb-4 transform group-hover:scale-110 transition-transform">✍️</div>
-                       <h5 className="text-2xl lg:text-3xl font-black text-white italic">03. 텍스트 레이어의 지혜</h5>
-                       <p className="text-slate-400 text-lg lg:text-xl leading-relaxed">
-                          이미지에 포함된 글자는 뭉개질 확률이 높습니다. 스튜디오 내의 <span className="text-white font-bold">텍스트 레이어 기능</span>을 활용해 별도로 글자를 입력해보세요. 픽셀 환경에서도 훨씬 깔끔한 가독성을 제공합니다.
-                       </p>
-                    </div>
-                    <div className="space-y-6 group">
-                       <div className="text-5xl lg:text-6xl mb-4 transform group-hover:scale-110 transition-transform">🔍</div>
-                       <h5 className="text-2xl lg:text-3xl font-black text-white italic">04. 세부 디테일 검토</h5>
-                       <p className="text-slate-400 text-lg lg:text-xl leading-relaxed">
-                          변환 직후 팔레트 목록에서 각 색상의 비중을 확인하세요. 너무 적게 사용된 색상은 게임 내에서 표현하기 번거로울 수 있으니 유사한 색상으로 통일하는 수정 과정이 필요할 수 있습니다.
-                       </p>
-                    </div>
+                    <div className="space-y-6 group"><div className="text-5xl lg:text-6xl mb-4 group-hover:scale-110 transition-transform">💡</div><h5 className="text-2xl lg:text-3xl font-black text-white italic">01. 선명도를 높이는 대비 조절</h5><p className="text-slate-400 text-lg lg:text-xl leading-relaxed">원본 이미지의 <span className="text-white font-bold">대비(Contrast)를 높여보세요.</span> 파란색 왜곡 방지 로직과 시너지를 일으켜 훨씬 뚜렷한 도안이 생성됩니다.</p></div>
+                    <div className="space-y-6 group"><div className="text-5xl lg:text-6xl mb-4 group-hover:scale-110 transition-transform">🎨</div><h5 className="text-2xl lg:text-3xl font-black text-white italic">02. 5x5 그리드 가이드 활용</h5><p className="text-slate-400 text-lg lg:text-xl leading-relaxed">워크스페이스와 내보내기 파일에는 <span className="text-[#EC4899] font-bold">5x5 단위 보조선</span>이 포함되어 있습니다. 인게임에서 픽셀을 찍을 때 훨씬 빠르고 정확하게 카운팅이 가능합니다.</p></div>
+                    <div className="space-y-6 group"><div className="text-5xl lg:text-6xl mb-4 group-hover:scale-110 transition-transform">✍️</div><h5 className="text-2xl lg:text-3xl font-black text-white italic">03. 텍스트 레이어의 지혜</h5><p className="text-slate-400 text-lg lg:text-xl leading-relaxed">이미지에 포함된 글자는 뭉개질 확률이 높습니다. 별도로 <span className="text-white font-bold">텍스트 레이어</span>를 추가하여 깔끔한 가독성을 확보하세요.</p></div>
+                    <div className="space-y-6 group"><div className="text-5xl lg:text-6xl mb-4 group-hover:scale-110 transition-transform">🔍</div><h5 className="text-2xl lg:text-3xl font-black text-white italic">04. 세부 디테일 검토</h5><p className="text-slate-400 text-lg lg:text-xl leading-relaxed">변환 직후 팔레트 목록에서 각 색상의 비중을 확인하세요. 5x5 단위로 픽셀을 찍어 내려가며 도안을 완성하세요.</p></div>
                  </div>
               </div>
             </div>
+            
             <footer className="mt-64 border-t border-slate-900 pt-32 pb-20">
               <div className="max-w-7xl mx-auto w-full grid lg:grid-cols-3 gap-24">
-                <div className="space-y-8">
-                  <h4 className="text-white font-black italic text-3xl tracking-tighter">TOWN HUB</h4>
-                  <p className="text-slate-500 text-xl leading-relaxed font-medium">
-                    Town Hub는 두근두근타운 유저들을 위한 비영리 팬 메이드 서비스입니다.
-                  </p>
-                </div>
-                <div className="space-y-8 text-slate-500 text-xl">
-                  <h4 className="text-white font-black italic text-3xl uppercase tracking-tighter">Policy</h4>
-                  <ul className="space-y-4 font-bold">
-                    <li onClick={() => setActivePolicy('TERMS')} className="hover:text-white cursor-pointer transition-colors">이용약관</li>
-                    <li onClick={() => setActivePolicy('PRIVACY')} className="hover:text-white cursor-pointer transition-colors text-[#EC4899]">개인정보처리방침</li>
-                    <li onClick={() => setActivePolicy('DISCLAIMER')} className="hover:text-white cursor-pointer transition-colors">면책사항</li>
-                  </ul>
-                </div>
-                <div className="space-y-8 text-slate-500 text-xl">
-                  <h4 className="text-white font-black italic text-3xl uppercase tracking-tighter">Contact</h4>
-                  <div className="space-y-4 font-medium">
-                    <p className="flex items-center gap-4 hover:text-white transition-colors cursor-pointer font-bold">📧 hyuneitv@gmail.com</p>
-                    <p className="opacity-40">© 2026 Town Hub Studio.</p>
-                  </div>
-                </div>
+                <div className="space-y-8"><h4 className="text-white font-black italic text-3xl tracking-tighter">TOWN HUB</h4><p className="text-slate-500 text-xl leading-relaxed font-medium">Town Hub는 두근두근타운 유저들을 위한 비영리 팬 메이드 서비스입니다.</p></div>
+                <div className="space-y-8 text-slate-500 text-xl"><h4 className="text-white font-black italic text-3xl uppercase tracking-tighter">Policy</h4><ul className="space-y-4 font-bold"><li onClick={() => setActivePolicy('TERMS')} className="hover:text-white cursor-pointer transition-colors">이용약관</li><li onClick={() => setActivePolicy('PRIVACY')} className="hover:text-white cursor-pointer transition-colors text-[#EC4899]">개인정보처리방침</li><li onClick={() => setActivePolicy('DISCLAIMER')} className="hover:text-white cursor-pointer transition-colors">면책사항</li></ul></div>
+                <div className="space-y-8 text-slate-500 text-xl"><h4 className="text-white font-black italic text-3xl uppercase tracking-tighter">Contact</h4><div className="space-y-4 font-medium"><p className="flex items-center gap-4 hover:text-white transition-colors cursor-pointer font-bold">📧 hyuneitv@gmail.com</p><p className="opacity-40">© 2026 Town Hub Studio.</p></div></div>
               </div>
-              <div className="mt-20 flex justify-center lg:hidden w-full max-w-[320px] mx-auto">
-                <BmcButton />
-              </div>
+              <div className="mt-20 flex justify-center lg:hidden w-full max-w-[320px] mx-auto"><BmcButton /></div>
             </footer>
           </div>
         );
@@ -523,31 +485,17 @@ const App: React.FC = () => {
             <div className="h-full max-w-7xl mx-auto flex flex-col relative">
               {step === 'MODE_SELECT' && (
                 <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-8 lg:gap-14 items-center justify-center p-4">
-                  <button onClick={() => { setStudioMode('PATTERN'); setStep('SETUP'); setCanvasDim({w:48, h:48}); }} 
-                          className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] lg:rounded-[100px] border-2 border-slate-800 hover:border-[#EC4899] hover:shadow-[0_0_50px_-10px_rgba(236,72,153,0.3)] transition-all flex flex-col items-center justify-center group shadow-2xl">
-                    <div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">🎨</div>
-                    <h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">픽셀 도안 제작</h3>
-                  </button>
-                  <button onClick={() => { setStudioMode('BOOK_COVER'); setCanvasDim({w:150, h:84}); setStep('UPLOAD'); }} 
-                          className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] lg:rounded-[100px] border-2 border-slate-800 hover:border-cyan-500 hover:shadow-[0_0_50px_-10px_rgba(6,182,212,0.3)] transition-all flex flex-col items-center justify-center group shadow-2xl">
-                    <div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">📖</div>
-                    <h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">북커버 제작</h3>
-                  </button>
+                  <button onClick={() => { setStudioMode('PATTERN'); setStep('SETUP'); setCanvasDim({w:48, h:48}); }} className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] border-2 border-slate-800 hover:border-[#EC4899] hover:shadow-[0_0_50px_rgba(236,72,153,0.3)] transition-all flex flex-col items-center justify-center group"><div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">🎨</div><h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">픽셀 도안 제작</h3></button>
+                  <button onClick={() => { setStudioMode('BOOK_COVER'); setCanvasDim({w:150, h:84}); setStep('UPLOAD'); }} className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] border-2 border-slate-800 hover:border-cyan-500 hover:shadow-[0_0_50px_rgba(6,182,212,0.3)] transition-all flex flex-col items-center justify-center group"><div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">📖</div><h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">북커버 제작</h3></button>
                 </div>
               )}
               {step === 'SETUP' && (
                 <div className="flex-1 flex items-center justify-center p-4">
-                  <div className="bg-slate-900/60 p-12 lg:p-28 rounded-[64px] lg:rounded-[100px] shadow-2xl border border-slate-800 max-w-2xl w-full backdrop-blur-xl">
-                    <h2 className="text-4xl lg:text-6xl font-black mb-12 lg:mb-20 italic text-white text-center">Dimension</h2>
-                    <div className="grid grid-cols-2 gap-6 lg:gap-10 mb-12 lg:mb-20 text-center">
-                      <div className="space-y-4">
-                        <label className="text-[10px] font-black text-slate-500 uppercase">Width</label>
-                        <input type="number" value={canvasDim.w} onChange={e=>setCanvasDim({...canvasDim, w:Number(e.target.value)})} className="w-full p-6 lg:p-10 bg-slate-800 rounded-[32px] font-black text-3xl lg:text-5xl text-center text-white outline-none" />
-                      </div>
-                      <div className="space-y-4">
-                        <label className="text-[10px] font-black text-slate-500 uppercase">Height</label>
-                        <input type="number" value={canvasDim.h} onChange={e=>setCanvasDim({...canvasDim, h:Number(e.target.value)})} className="w-full p-6 lg:p-10 bg-slate-800 rounded-[32px] font-black text-3xl lg:text-5xl text-center text-white outline-none" />
-                      </div>
+                  <div className="bg-slate-900/60 p-12 lg:p-28 rounded-[64px] shadow-2xl border border-slate-800 max-w-2xl w-full backdrop-blur-xl">
+                    <h2 className="text-4xl lg:text-6xl font-black mb-12 italic text-white text-center">Dimension</h2>
+                    <div className="grid grid-cols-2 gap-6 mb-12 text-center">
+                      <div className="space-y-4"><label className="text-[10px] font-black text-slate-500 uppercase">Width</label><input type="number" value={canvasDim.w} onChange={e=>setCanvasDim({...canvasDim, w:Number(e.target.value)})} className="w-full p-6 bg-slate-800 rounded-[32px] font-black text-3xl text-center text-white outline-none" /></div>
+                      <div className="space-y-4"><label className="text-[10px] font-black text-slate-500 uppercase">Height</label><input type="number" value={canvasDim.h} onChange={e=>setCanvasDim({...canvasDim, h:Number(e.target.value)})} className="w-full p-6 bg-slate-800 rounded-[32px] font-black text-3xl text-center text-white outline-none" /></div>
                     </div>
                     <button onClick={()=>setStep('UPLOAD')} className="w-full py-8 bg-white text-slate-900 rounded-[40px] font-black text-xl lg:text-3xl shadow-2xl hover:bg-[#EC4899] hover:text-white transition-all">Next Step</button>
                   </div>
@@ -555,7 +503,7 @@ const App: React.FC = () => {
               )}
               {step === 'UPLOAD' && (
                 <div className="flex-1 flex items-center justify-center p-4">
-                  <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-5xl aspect-video bg-slate-900/20 rounded-[64px] lg:rounded-[120px] border-4 border-dashed border-slate-800 flex flex-col items-center justify-center cursor-pointer group transition-all shadow-2xl">
+                  <div onClick={()=>fileInputRef.current?.click()} className="w-full max-w-5xl aspect-video bg-slate-900/20 rounded-[64px] border-4 border-dashed border-slate-800 flex flex-col items-center justify-center cursor-pointer group transition-all shadow-2xl">
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={(e) => {
                       const f = e.target.files?.[0]; if (f) {
                         const r = new FileReader(); r.onload = (ev) => {
@@ -564,7 +512,7 @@ const App: React.FC = () => {
                         }; r.readAsDataURL(f);
                       }
                     }} />
-                    <div className="w-24 h-24 lg:w-40 lg:h-40 bg-slate-900 rounded-[40px] flex items-center justify-center text-5xl lg:text-8xl mb-8 group-hover:bg-[#EC4899] transition-all shadow-2xl">📸</div>
+                    <div className="w-24 h-24 lg:w-40 lg:h-40 bg-slate-900 rounded-[40px] flex items-center justify-center text-5xl lg:text-8xl mb-8 group-hover:bg-[#EC4899] transition-all">📸</div>
                     <p className="font-black text-2xl lg:text-5xl text-white italic tracking-tighter">이미지를 선택하세요</p>
                   </div>
                 </div>
@@ -572,7 +520,7 @@ const App: React.FC = () => {
               {(step === 'FRAME' || step === 'TEXT') && (
                 <div className="flex flex-col lg:flex-row gap-8 lg:gap-20 h-full min-h-0 items-center justify-center p-2">
                   <div className="w-full flex-1 flex flex-col items-center min-h-0 lg:max-w-6xl overflow-hidden">
-                    <div className="bg-slate-900/40 rounded-[48px] lg:rounded-[120px] shadow-2xl p-6 lg:p-36 w-full flex-1 flex items-center justify-center relative overflow-hidden border border-slate-800/50 backdrop-blur-xl">
+                    <div className="bg-slate-900/40 rounded-[48px] shadow-2xl p-6 lg:p-36 w-full flex-1 flex items-center justify-center relative border border-slate-800/50 backdrop-blur-xl overflow-hidden">
                       <div ref={frameContainerRef} className="relative bg-white shadow-2xl overflow-hidden rounded-xl z-10 touch-none"
                            style={{ width: 'min(900px, 100%)', aspectRatio: `${canvasDim.w}/${canvasDim.h}`, border: '4px solid #000' }}
                            onMouseDown={e => handleDragStart(e)} onTouchStart={e => handleDragStart(e)}
@@ -580,8 +528,7 @@ const App: React.FC = () => {
                            onMouseUp={() => { frameDragRef.current.isDragging = false; }} onTouchEnd={() => { frameDragRef.current.isDragging = false; }}>
                         <canvas ref={previewCanvasRef} width={canvasDim.w} height={canvasDim.h} className="w-full h-full pointer-events-none" style={{imageRendering:'pixelated'}} />
                         {textLayers.map(l => (
-                          <div key={l.id} 
-                               className={`absolute cursor-move font-black whitespace-nowrap select-none touch-none ${selectedTextId === l.id ? 'ring-4 ring-[#EC4899] bg-white/60 p-1 rounded-md' : ''}`}
+                          <div key={l.id} className={`absolute cursor-move font-black whitespace-nowrap select-none touch-none ${selectedTextId === l.id ? 'ring-4 ring-[#EC4899] bg-white/60 p-1 rounded-md' : ''}`}
                                style={{ left: `${l.x}%`, top: `${l.y}%`, transform: 'translate(-50%, -50%)', color: l.color, fontSize: `calc(${l.size}px * (min(900, 100vw) / ${canvasDim.w}))` }}
                                onMouseDown={e => { e.stopPropagation(); handleDragStart(e, true, l.id); }} onTouchStart={e => { e.stopPropagation(); handleDragStart(e, true, l.id); }}>{l.text}</div>
                         ))}
@@ -589,42 +536,27 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   <div className="w-full lg:w-[480px] shrink-0 z-20 pb-8 lg:pb-0">
-                    <div className="bg-slate-900 p-8 lg:p-16 rounded-[48px] lg:rounded-[80px] shadow-2xl space-y-10 border border-slate-800">
+                    <div className="bg-slate-900 p-8 lg:p-16 rounded-[48px] shadow-2xl space-y-10 border border-slate-800">
                        {step === 'FRAME' ? (
                          <div className="space-y-10">
-                           <div className="space-y-6">
-                              <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest block">Scale: {Math.round(crop.scale * 100)}%</label>
-                              <input type="range" min="0.1" max="5" step="0.01" value={crop.scale} onChange={e=>setCrop({...crop, scale:Number(e.target.value)})} className="w-full accent-[#EC4899] h-2.5 rounded-full bg-slate-800" />
-                           </div>
-                           <div className="grid grid-cols-2 gap-4">
-                              <button onClick={resetPosition} className="py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-xs">위치 초기화</button>
-                              <button onClick={resetScale} className="py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-xs">스케일 초기화</button>
-                              <button onClick={fitToCanvas} className="col-span-2 py-5 bg-slate-800 text-white rounded-2xl font-black text-sm hover:bg-slate-700 transition-all">캔버스 채우기</button>
-                           </div>
+                           <div className="space-y-6"><label className="text-[11px] font-black text-slate-500 uppercase block">Scale: {Math.round(crop.scale * 100)}%</label><input type="range" min="0.1" max="5" step="0.01" value={crop.scale} onChange={e=>setCrop({...crop, scale:Number(e.target.value)})} className="w-full accent-[#EC4899] h-2.5 rounded-full bg-slate-800" /></div>
+                           <div className="grid grid-cols-2 gap-4"><button onClick={resetPosition} className="py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-xs">위치 초기화</button><button onClick={resetScale} className="py-4 bg-slate-800 text-slate-400 rounded-2xl font-black text-xs">스케일 초기화</button><button onClick={fitToCanvas} className="col-span-2 py-5 bg-slate-800 text-white rounded-2xl font-black text-sm hover:bg-slate-700 transition-all">캔버스 채우기</button></div>
                            <button onClick={() => studioMode === 'BOOK_COVER' ? setStep('TEXT') : startPixelation()} className="w-full py-8 bg-[#EC4899] text-white rounded-[40px] font-black text-xl lg:text-3xl shadow-xl transition-all">레이아웃 완료 ➔</button>
                          </div>
                        ) : (
                          <div className="space-y-10">
-                           <button onClick={() => { const n: TextLayer = { id: `t-${Date.now()}`, text: 'Hello', x: 50, y: 50, size: 8, color: '#000000' }; setTextLayers([...textLayers, n]); setSelectedTextId(n.id); }} 
-                                   className="w-full py-5 bg-white text-slate-900 rounded-[30px] font-black text-xs">+ 텍스트 레이어 추가</button>
+                           <button onClick={() => { const n: TextLayer = { id: `t-${Date.now()}`, text: 'Hello', x: 50, y: 50, size: 8, color: '#000000' }; setTextLayers([...textLayers, n]); setSelectedTextId(n.id); }} className="w-full py-5 bg-white text-slate-900 rounded-[30px] font-black text-xs">+ 텍스트 레이어 추가</button>
                            {selectedText && (
                              <div className="p-8 bg-slate-800/50 rounded-[40px] space-y-8 border border-slate-700/50">
-                                <input type="text" value={selectedText.text} onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, text: e.target.value } : l))} 
-                                       className="w-full p-5 bg-slate-900 rounded-2xl font-black text-sm text-white outline-none ring-2 ring-slate-700 focus:ring-[#EC4899]" />
-                                <div className="space-y-3">
-                                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Font Size ({selectedText.size}px)</label>
-                                  <input type="range" min="4" max="40" value={selectedText.size} onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, size: Number(e.target.value) } : l))} className="w-full accent-[#EC4899]" />
-                                </div>
-                                <div className="flex gap-4">
-                                  <input type="color" value={selectedText.color} onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, color: e.target.value } : l))} className="flex-1 h-14 bg-transparent cursor-pointer rounded-xl overflow-hidden" />
-                                  <button onClick={() => setTextLayers(prev => prev.filter(l => l.id !== selectedTextId))} className="px-6 bg-red-500/10 text-red-500 font-black text-[10px] rounded-2xl hover:bg-red-500 hover:text-white transition-all">삭제</button>
-                                </div>
+                                <input type="text" value={selectedText.text} onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, text: e.target.value } : l))} className="w-full p-5 bg-slate-900 rounded-2xl font-black text-sm text-white outline-none ring-2 ring-slate-700 focus:ring-[#EC4899]" />
+                                <div className="space-y-3"><label className="text-[10px] font-black text-slate-500 uppercase">Font Size ({selectedText.size}px)</label><input type="range" min="4" max="40" value={selectedText.size} onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, size: Number(e.target.value) } : l))} className="w-full accent-[#EC4899]" /></div>
+                                <div className="flex gap-4"><input type="color" value={selectedText.color} onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, color: e.target.value } : l))} className="flex-1 h-14 bg-transparent cursor-pointer rounded-xl overflow-hidden" /><button onClick={() => setTextLayers(prev => prev.filter(l => l.id !== selectedTextId))} className="px-6 bg-red-500/10 text-red-500 font-black text-[10px] rounded-2xl hover:bg-red-500 hover:text-white transition-all">삭제</button></div>
                              </div>
                            )}
                            <button onClick={startPixelation} className="w-full py-8 bg-[#EC4899] text-white rounded-[40px] font-black text-xl lg:text-3xl shadow-xl">변환 프로세스 시작</button>
                          </div>
                        )}
-                       <button onClick={() => setStep(step === 'TEXT' ? 'FRAME' : 'UPLOAD')} className="w-full py-2 text-slate-600 font-black text-[10px] uppercase tracking-[0.4em] text-center block">Go Back</button>
+                       <button onClick={() => setStep(step === 'TEXT' ? 'FRAME' : 'UPLOAD')} className="w-full py-2 text-slate-600 font-black text-[10px] uppercase text-center block">Go Back</button>
                     </div>
                   </div>
                 </div>
@@ -635,38 +567,37 @@ const App: React.FC = () => {
                     <div className="bg-slate-900/40 p-5 rounded-[40px] border border-slate-800/50 flex items-center justify-between shrink-0 z-[100] backdrop-blur-md">
                        <button onClick={()=>setStep(studioMode === 'BOOK_COVER' ? 'TEXT' : 'FRAME')} className="px-6 py-3 bg-slate-800 rounded-2xl font-black text-[11px] text-slate-400 hover:text-white transition-all">이전 단계</button>
                        <div className="flex items-center gap-3 lg:gap-6">
-                          <div className="bg-slate-800 p-1.5 rounded-2xl flex items-center gap-3">
-                             <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">-</button>
-                             <span className="text-[11px] font-black w-12 text-center text-white">{zoom}%</span>
-                             <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">+</button>
-                          </div>
+                          <div className="bg-slate-800 p-1.5 rounded-2xl flex items-center gap-3"><button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">-</button><span className="text-[11px] font-black w-12 text-center text-white">{zoom}%</span><button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">+</button></div>
                           <div className="relative">
                             <button onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }} className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black shadow-2xl text-[11px] hover:bg-[#EC4899] hover:text-white transition-all">Export {showExportMenu ? '▲' : '▼'}</button>
                             {showExportMenu && (
                               <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right animate-in zoom-in-95">
-                                <div className="p-5 bg-slate-800 rounded-3xl mb-3">
-                                  <label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label>
-                                  <input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" />
-                                </div>
-                                <button disabled={isExporting} onClick={exportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all">
-                                  <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div>
-                                  <span className="font-black text-white text-xs">ZIP Guide Download</span>
-                                </button>
+                                <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
+                                <button disabled={isExporting} onClick={exportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all"><div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div><span className="font-black text-white text-xs">ZIP Guide Download</span></button>
                               </div>
                             )}
                           </div>
                        </div>
                     </div>
+                    {/* UI 워크스페이스 그리드 렌더링 (5x5 보조선 적용) */}
                     <div ref={editorScrollRef} className="flex-1 bg-slate-900/20 rounded-[64px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10" style={{'--cell-size': `${zoom / 20}px`, '--font-size': zoom >= 250 ? `${Math.max(7, zoom / 60)}px` : '0px'} as any}>
                       <div className="inline-block p-[100px] lg:p-[300px]">
-                        <div className="bg-slate-900 p-8 lg:p-16 border-[12px] lg:border-[20px] border-black shadow-2xl rounded-sm">
+                        <div className="bg-slate-900 p-8 lg:p-16 border-[12px] border-black shadow-2xl rounded-sm">
                           <div className="pixel-grid" style={{display: 'grid', gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))`}}>
                             {pixelData.colors.map((color, idx) => {
+                              const row = Math.floor(idx / pixelData.width);
+                              const col = idx % pixelData.width;
                               const pId = paletteIndexMap.get(color);
                               const isSelected = activePaletteId === pId;
+                              
+                              // 5x5 그리드 선 강조 로직
+                              const isMajorRight = (col + 1) % 5 === 0 && (col + 1) !== pixelData.width;
+                              const isMajorBottom = (row + 1) % 5 === 0 && (row + 1) !== pixelData.height;
+
                               return (
-                                <div key={idx} style={{backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: 'var(--font-size)'}}
-                                  className={`pixel-item flex items-center justify-center font-black ${isSelected ? 'ring-2 lg:ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl' : 'hover:opacity-90'}`}
+                                <div key={idx} 
+                                  style={{backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: 'var(--font-size)'}}
+                                  className={`pixel-item flex items-center justify-center font-black transition-all border-black/5 ${isMajorRight ? 'border-r-2 border-r-black/40' : 'border-r-[0.5px]'} ${isMajorBottom ? 'border-b-2 border-b-black/40' : 'border-b-[0.5px]'} ${isSelected ? 'ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl' : 'hover:opacity-90'}`}
                                   onClick={() => setActivePaletteId(isSelected ? null : pId)}>
                                   {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
                                 </div>
@@ -677,29 +608,14 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 ease-out flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0 lg:overflow-hidden'}`}>
+                  <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0'}`}>
                     <div className="w-[85vw] lg:w-[440px] bg-slate-900 p-8 lg:p-14 rounded-l-[48px] lg:rounded-[100px] shadow-2xl border-l border-slate-800 h-full flex flex-col min-h-0">
-                       <div className="flex items-center justify-between mb-8 shrink-0">
-                          <h3 className="font-black italic text-2xl text-white">Palette <span className="text-[11px] bg-slate-800 px-4 py-1.5 rounded-full not-italic text-slate-500">{pixelData.palette.length}</span></h3>
-                          <button onClick={() => setShowPalette(false)} className="lg:hidden text-slate-500 font-black text-2xl">✕</button>
-                       </div>
-                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
-                         <div className="grid grid-cols-1 gap-4 lg:gap-6">
+                       <div className="flex items-center justify-between mb-8 shrink-0"><h3 className="font-black italic text-2xl text-white">Palette <span className="text-[11px] bg-slate-800 px-4 py-1.5 rounded-full not-italic text-slate-500">{pixelData.palette.length}</span></h3><button onClick={() => setShowPalette(false)} className="lg:hidden text-slate-500 font-black text-2xl">✕</button></div>
+                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2"><div className="grid grid-cols-1 gap-4 lg:gap-6">
                            {pixelData.palette.map((p, i) => (
-                             <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} 
-                                  className={`flex items-center gap-5 p-4 rounded-[28px] border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-slate-800 border-[#EC4899] shadow-xl scale-[1.03]':'border-transparent hover:bg-slate-800/40'}`}>
-                               <div className="w-12 h-12 rounded-[16px] flex items-center justify-center font-black text-sm border-2 border-slate-900 shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div>
-                               <div className="flex-1 min-w-0 pr-1">
-                                 <div className="flex items-center gap-3 w-full">
-                                   <p className="text-sm font-black truncate text-white italic">{p.index}</p>
-                                   <span className="text-[9px] bg-slate-900 text-slate-400 px-3 py-1.5 rounded-xl font-black shrink-0">{p.count} PX</span>
-                                 </div>
-                                 <p className="text-[10px] font-mono text-slate-600 uppercase tracking-widest mt-1.5">{p.hex}</p>
-                               </div>
-                             </div>
+                             <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} className={`flex items-center gap-5 p-4 rounded-[28px] border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-slate-800 border-[#EC4899] shadow-xl scale-[1.03]':'border-transparent hover:bg-slate-800/40'}`}><div className="w-12 h-12 rounded-[16px] flex items-center justify-center font-black text-sm border-2 border-slate-900 shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div><div className="flex-1 min-w-0 pr-1"><div className="flex items-center gap-3 w-full"><p className="text-sm font-black truncate text-white italic">{p.index}</p><span className="text-[9px] bg-slate-900 text-slate-400 px-3 py-1.5 rounded-xl font-black shrink-0">{p.count} PX</span></div><p className="text-[10px] font-mono text-slate-600 uppercase mt-1.5">{p.hex}</p></div></div>
                            ))}
-                         </div>
-                       </div>
+                       </div></div>
                     </div>
                   </div>
                 </div>
@@ -709,42 +625,21 @@ const App: React.FC = () => {
         );
       case 'DESIGN_FEED':
         return (
-          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700 overflow-y-auto">
+          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700">
              <div className="w-40 h-40 bg-pink-500/10 rounded-[60px] flex items-center justify-center text-7xl shadow-2xl border border-pink-500/20">🖼️</div>
-             <div className="space-y-6 max-w-2xl">
-                <h2 className="text-5xl lg:text-7xl font-black italic text-white tracking-tighter">Town Hub <span className="text-[#EC4899]">커뮤니티 오픈 예정</span></h2>
-                <p className="text-slate-400 text-xl lg:text-2xl font-medium leading-relaxed">
-                  전 세계 두근두근타운 아티스트들과 소통하고 나만의 도안을 자랑할 수 있는 공간이 준비 중입니다. 
-                  <br/><br/>
-                  <span className="text-white font-bold">도안 공유, 좋아요, 아티스트 랭킹</span> 등 다양한 기능이 곧 찾아옵니다.
-                </p>
-             </div>
-             <div className="flex flex-col items-center gap-8">
-                <div className="px-8 py-3 bg-slate-900 border border-slate-800 rounded-full text-slate-500 font-bold text-sm uppercase tracking-widest">Coming Soon in 2026</div>
-                <BmcButton />
-             </div>
+             <div className="space-y-6 max-w-2xl"><h2 className="text-5xl lg:text-7xl font-black italic text-white tracking-tighter">Town Hub <span className="text-[#EC4899]">커뮤니티 오픈 예정</span></h2><p className="text-slate-400 text-xl lg:text-2xl font-medium leading-relaxed">전 세계 두근두근타운 아티스트들과 소통하고 나만의 도안을 자랑할 수 있는 공간이 준비 중입니다. <br/><br/><span className="text-white font-bold">도안 공유, 좋아요, 아티스트 랭킹</span> 등 다양한 기능이 곧 찾아옵니다.</p></div>
+             <div className="flex flex-col items-center gap-8"><div className="px-8 py-3 bg-slate-900 border border-slate-800 rounded-full text-slate-500 font-bold text-sm uppercase tracking-widest">Coming Soon in 2026</div><BmcButton /></div>
           </div>
         );
       case 'FRIENDS_COMMUNITY':
         return (
-          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700 overflow-y-auto">
+          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700">
              <div className="w-40 h-40 bg-indigo-500/10 rounded-[60px] flex items-center justify-center text-7xl shadow-2xl border border-indigo-500/20">💎</div>
-             <div className="space-y-6 max-w-2xl">
-                <h2 className="text-5xl lg:text-7xl font-black italic text-white tracking-tighter"><span className="text-indigo-400">포인트 샵 & 친구</span> 서비스 준비 중</h2>
-                <p className="text-slate-400 text-xl lg:text-2xl font-medium leading-relaxed">
-                  Town Hub 활동으로 포인트를 모아 특별한 캔버스 프레임과 텍스트 효과를 구매해보세요.
-                  <br/><br/>
-                  <span className="text-white font-bold">친구 추가, 실시간 작업 공유, 포인트 선물</span> 등 풍성한 소셜 기능이 업데이트될 예정입니다.
-                </p>
-             </div>
-             <div className="flex flex-col items-center gap-8">
-                <button onClick={() => setActiveView('STUDIO')} className="px-12 py-5 bg-white text-slate-900 rounded-full font-black text-xl hover:bg-indigo-400 hover:text-white transition-all shadow-2xl active:scale-95">아트스튜디오로 가기</button>
-                <BmcButton />
-             </div>
+             <div className="space-y-6 max-w-2xl"><h2 className="text-5xl lg:text-7xl font-black italic text-white tracking-tighter"><span className="text-indigo-400">포인트 샵 & 친구</span> 서비스 준비 중</h2><p className="text-slate-400 text-xl lg:text-2xl font-medium leading-relaxed">Town Hub 활동으로 포인트를 모아 특별한 캔버스 프레임과 텍스트 효과를 구매해보세요. <br/><br/><span className="text-white font-bold">친구 추가, 실시간 작업 공유, 포인트 선물</span> 등 풍성한 소셜 기능이 업데이트될 예정입니다.</p></div>
+             <div className="flex flex-col items-center gap-8"><button onClick={() => setActiveView('STUDIO')} className="px-12 py-5 bg-white text-slate-900 rounded-full font-black text-xl hover:bg-indigo-400 hover:text-white transition-all shadow-2xl active:scale-95">아트스튜디오로 가기</button><BmcButton /></div>
           </div>
         );
-      default:
-        return null;
+      default: return null;
     }
   };
 
@@ -753,20 +648,16 @@ const App: React.FC = () => {
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {toast && <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs animate-in slide-in-from-top-4">{toast}</div>}
-        
         <header className="px-6 py-4 lg:px-12 lg:py-10 shrink-0 flex flex-col lg:flex-row items-center justify-between gap-6 border-b border-slate-900/50">
-           <h2 className="text-[10px] font-black italic text-slate-600 uppercase tracking-[0.4em] flex items-center gap-4">
-              <span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(236,72,153,0.8)]"></span>
-              {activeView === 'STUDIO' ? `${step} DASHBOARD` : activeView === 'HOME' ? 'MAIN DASHBOARD' : `${activeView} DASHBOARD`}
-           </h2>
+           <h2 className="text-[10px] font-black italic text-slate-600 uppercase tracking-[0.4em] flex items-center gap-4"><span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>{activeView === 'STUDIO' ? `${step} DASHBOARD` : activeView === 'HOME' ? 'MAIN DASHBOARD' : `${activeView} DASHBOARD`}</h2>
            {activeView === 'STUDIO' && <Stepper />}
         </header>
-
         <div className="flex-1 overflow-hidden relative flex flex-col">
           {renderMainContent()}
         </div>
       </main>
       <PolicyModal />
+      <UpdateLogsModal />
     </div>
   );
 };
