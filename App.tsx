@@ -78,7 +78,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user && adminEmails.includes(user.email || "")) setIsAdmin(true);
     
-    const db = getFirestore();
+    
     // 승인된 서버 불러오기
     const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), orderBy("createdAt", "desc")), (snap) => {
       setApprovedDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -948,8 +948,7 @@ const NicknameModal = () => {
           </div>
         );
         // --- 디스코드 등록 신청 모달 ---
-  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
-  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
+
 
   const DiscordModal = () => {
     if (!isDiscordModalOpen) return null;
