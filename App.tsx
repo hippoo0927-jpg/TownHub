@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { AppStep, PixelData, StudioMode, ColorInfo, TOWN_PALETTE_HEX, TextLayer } from './types';
 import { processArtStudioPixel } from './services/pixelService';
@@ -113,12 +113,6 @@ const App: React.FC = () => {
   };
   // -----------------------
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleLogin = async () => {
     try {
@@ -826,6 +820,19 @@ const NicknameModal = () => {
           <h3 className="text-2xl font-black text-white mb-4 italic uppercase">Friends Registration</h3>
           <p className="text-slate-400 mb-8">친구 등록 기능은 현재 준비 중입니다.</p>
           <button onClick={() => setIsFriendModalOpen(false)} className="w-full py-4 bg-pink-500 text-white rounded-xl font-bold">확인</button>
+        </div>
+      </div>
+    );
+  };
+  // 여기부터 복사해서 붙여넣으세요!
+  const DiscordModal = () => {
+    if (!isDiscordModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 max-w-md w-full text-center">
+          <h3 className="text-2xl font-black text-white mb-4 italic uppercase">Discord Application</h3>
+          <p className="text-slate-400 mb-8">디스코드 신청 기능은 현재 준비 중입니다.</p>
+          <button onClick={() => setIsDiscordModalOpen(false)} className="w-full py-4 bg-indigo-500 text-white rounded-xl font-bold">확인</button>
         </div>
       </div>
     );
