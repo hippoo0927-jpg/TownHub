@@ -447,7 +447,9 @@ const App: React.FC = () => {
 );
 
   const PolicyModal = () => {
+    // 1. activePolicy 상태가 없으면 렌더링하지 않음
     if (!activePolicy) return null;
+
     const contentMap = {
       TERMS: { 
         title: "이용약관", 
@@ -455,7 +457,7 @@ const App: React.FC = () => {
       },
       PRIVACY: { 
         title: "개인정보 처리방침", 
-        text: "Town Square(이하 '본 서비스')는 사용자의 개인정보를 소중히 여기며, 개인정보보호법 및 관련 법령을 준수합니다.
+        text: `Town Square(이하 '본 서비스')는 사용자의 개인정보를 소중히 여기며, 개인정보보호법 및 관련 법령을 준수합니다.
 
 1. 개인정보의 수집 및 이용 (Google 로그인)
 본 서비스는 구글(Google) 인증 서비스를 통해 안전한 로그인 및 유저 식별 기능을 제공하며, 사용자의 동의 하에 최소한의 정보를 수집합니다.
@@ -474,21 +476,53 @@ const App: React.FC = () => {
 • 쿠키(Cookie) 활용: 서비스 방문 통계 분석 및 맞춤형 광고 노출을 위해 쿠키가 사용될 수 있으며, 사용자는 브라우저 설정을 통해 이를 거부할 수 있습니다.
 
 4. 개인정보 보호 문의
-본 서비스는 사용자의 권리를 존중합니다. 개인정보와 관련한 문의나 계정 데이터 삭제 요청은 고객지원팀을 통해 처리하실 수 있습니다." 
+본 서비스는 사용자의 권리를 존중합니다. 개인정보와 관련한 문의나 계정 데이터 삭제 요청은 고객지원팀을 통해 처리하실 수 있습니다.`
       },
       DISCLAIMER: { 
         title: "면책사항", 
         text: "본 변환 결과는 원본 이미지에 따라 실제 인게임 결과와 차이가 발생할 수 있습니다. 시스템의 보정 로직은 완벽한 정확성을 보장하지 않으며, 사용자는 도안 제작 전 최종 검토를 수행해야 합니다. 서비스 이용 중 발생하는 데이터 손실에 대해서는 복구가 불가능할 수 있음을 알려드립니다." 
       }
     };
-    const current = contentMap[activePolicy];
+
+    // 현재 선택된 정책 데이터 가져오기
+    const current = contentMap[activePolicy as keyof typeof contentMap];
+
     return (
-      <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" onClick={() => setActivePolicy(null)}>
-        <div className="bg-slate-900 border border-slate-800 rounded-[48px] p-10 lg:p-16 max-w-2xl w-full shadow-2xl relative animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-          <button onClick={() => setActivePolicy(null)} className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors text-2xl">✕</button>
-          <h3 className="text-3xl lg:text-4xl font-black italic text-white mb-8 border-l-4 border-[#EC4899] pl-6 uppercase tracking-tighter">{current.title}</h3>
-          <p className="text-slate-400 text-lg lg:text-xl leading-relaxed whitespace-pre-wrap">{current.text}</p>
-          <button onClick={() => setActivePolicy(null)} className="mt-12 w-full py-5 bg-white text-slate-900 rounded-3xl font-black text-lg hover:bg-[#EC4899] hover:text-white transition-all">확인</button>
+      <div 
+        className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300" 
+        onClick={() => setActivePolicy(null)}
+      >
+        <div 
+          className="bg-slate-900 border border-slate-800 rounded-[48px] p-10 lg:p-16 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative animate-in zoom-in-95 duration-300" 
+          onClick={e => e.stopPropagation()}
+        >
+          {/* 닫기 버튼 */}
+          <button 
+            onClick={() => setActivePolicy(null)} 
+            className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors text-2xl p-2"
+          >
+            ✕
+          </button>
+
+          {/* 제목 */}
+          <h3 className="text-3xl lg:text-4xl font-black italic text-white mb-8 border-l-4 border-[#EC4899] pl-6 uppercase tracking-tighter shrink-0">
+            {current.title}
+          </h3>
+
+          {/* 본문 (스크롤 가능 영역) */}
+          <div className="flex-1 overflow-y-auto pr-4 custom-scrollbar">
+            <p className="text-slate-400 text-lg lg:text-xl leading-relaxed whitespace-pre-wrap font-medium">
+              {current.text}
+            </p>
+          </div>
+
+          {/* 하단 버튼 */}
+          <button 
+            onClick={() => setActivePolicy(null)} 
+            className="mt-12 w-full py-5 bg-white text-slate-900 rounded-3xl font-black text-lg hover:bg-[#EC4899] hover:text-white transition-all shrink-0"
+          >
+            확인했습니다
+          </button>
         </div>
       </div>
     );
