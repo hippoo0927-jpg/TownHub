@@ -1011,15 +1011,15 @@ const NicknameModal = () => {
           {renderMainContent()}
         </div>
 
-        {/* 모달들을 main 태그 안쪽 맨 아래에 배치 */}
+        {/* 모달 호출부 */}
         <DiscordModal />
         <FriendModal />
         <NicknameModal />
         <PolicyModal />
         <UpdateLogsModal />
-      </main> {/* main 태그를 여기서 닫습니다 */}
-    </div> {/* 가장 바깥쪽 flex div를 여기서 닫습니다 */}
+      </main>
+    </div>
   );
-}; // App 함수 종료
+};
 
-export default App; // 파일의 최하단에 딱 한 번만 존재해야 함
+export default App;
