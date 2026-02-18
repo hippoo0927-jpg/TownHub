@@ -60,6 +60,54 @@ const BmcButton: React.FC = () => {
 const App: React.FC = () => {
   // 1. 상태 관리
   const [user, setUser] = useState<User | null>(null);
+  // --- 추가된 상태값 ---
+  const [role, setRole] = useState<'admin' | 'user'>('user');
+  const [nickname, setNickname] = useState<string>('');
+  const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
+  const [tempNickname, setTempNickname] = useState('');
+  
+  // 본인의 구글 이메일을 여기에 입력하세요 (관리자 지정)
+  const ADMIN_EMAIL = "hippoo0927@gmail.com"; 
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // 관리자 여부 확인
+        if (currentUser.email === ADMIN_EMAIL) {
+          setRole('admin');
+        }
+        
+        // Firestore에서 닉네임 정보 가져오기
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          setNickname(userDoc.data().nickname);
+        } else {
+          // 정보가 없으면 닉네임 설정창 띄우기
+          setIsNicknameModalOpen(true);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 닉네임 저장 함수
+  const saveNickname = async () => {
+    if (!user || !tempNickname.trim()) return;
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        nickname: tempNickname,
+        role: user.email === ADMIN_EMAIL ? 'admin' : 'user',
+        createdAt: serverTimestamp()
+      });
+      setNickname(tempNickname);
+      setIsNicknameModalOpen(false);
+      showToast("닉네임이 설정되었습니다!");
+    } catch (e) {
+      showToast("저장에 실패했습니다.");
+    }
+  };
+  // -----------------------
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -428,6 +476,26 @@ const App: React.FC = () => {
       </div>
     );
   };
+const NicknameModal = () => {
+    if (!isNicknameModalOpen) return null;
+    return (
+      <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+        <div className="bg-slate-900 border border-slate-800 rounded-[48px] p-10 max-w-md w-full text-center">
+          <h3 className="text-3xl font-black text-white mb-6 italic">WELCOME!</h3>
+          <p className="text-slate-400 mb-8">사용하실 닉네임을 설정해주세요.</p>
+          <input 
+            type="text" 
+            value={tempNickname} 
+            onChange={(e) => setTempNickname(e.target.value)}
+            className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500"
+            placeholder="닉네임 입력 (최대 10자)"
+            maxLength={10}
+          />
+          <button onClick={saveNickname} className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black hover:bg-pink-600 transition-all">시작하기</button>
+        </div>
+      </div>
+    );
+  };
 
   /**
    * 업데이트 로그 전체 내역 모달
@@ -714,17 +782,50 @@ const App: React.FC = () => {
           </div>
         );
       case 'FRIENDS_COMMUNITY':
-  return (
-    <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
-      <div className="flex flex-col lg:flex-row gap-8 h-full">
-        {/* 왼쪽: Friends 리스트 (도안 디자인) */}
-        <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">
-              Friends <span className="text-sm not-italic font-bold text-slate-500 ml-4 lowercase">(1주일에 한번만 올릴 수 있습니다.)</span>
-            </h2>
-            <button className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg">등록하기</button>
+        return (
+          <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
+            <div className="flex flex-col lg:flex-row gap-8 h-full">
+              {/* Friends 리스트 */}
+              <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
+                  <button className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg">친구 등록</button>
+                </div>
+                {/* 리스트 생략 (기존 유지) */}
+              </div>
+
+              {/* Discord 승인제 섹션 */}
+              <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col">
+                <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
+                
+                <div className="space-y-4">
+                  {/* 일반 유저는 신청 버튼, 관리자는 승인 대기 목록이 보임 */}
+                  {role === 'admin' ? (
+                    <p className="text-pink-500 font-bold text-center text-xs mb-4">관리자: 승인 대기중인 신청을 관리하세요.</p>
+                  ) : (
+                    <button className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black text-sm mb-6 hover:bg-indigo-700 transition-all">디스코드 등록 신청</button>
+                  )}
+
+                  {/* 샘플 아이템 (role === 'admin'일 때만 승인 버튼 노출) */}
+                  <div className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center">💬</div>
+                      <span className="font-bold text-white text-sm">신청한 유저닉네임</span>
+                    </div>
+                    {role === 'admin' ? (
+                      <div className="flex gap-2">
+                        <button className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-[10px] font-black">승인</button>
+                        <button className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] font-black">거절</button>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-slate-500">대기 중</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+        );
           
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
