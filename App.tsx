@@ -1,5 +1,9 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { initializeApp } from "firebase/app";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import { AppStep, PixelData, StudioMode, ColorInfo, TOWN_PALETTE_HEX, TextLayer } from './types';
 import { processArtStudioPixel } from './services/pixelService';
 import JSZip from 'jszip';
@@ -11,6 +15,21 @@ interface UpdateLog {
   date: string;
   content: string;
 }
+const firebaseConfig = {
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+const provider = new GoogleAuthProvider();
 
 const getContrastColor = (hex: string) => {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -40,6 +59,24 @@ const BmcButton: React.FC = () => {
 
 const App: React.FC = () => {
   // 1. 상태 관리
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      alert("로그인에 실패했습니다.");
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
   const [activeView, setActiveView] = useState<MainView>('HOME');
   const [toast, setToast] = useState<string | null>(null);
   const [step, setStep] = useState<AppStep>('MODE_SELECT');
@@ -311,17 +348,30 @@ const App: React.FC = () => {
           </nav>
         </div>
         <div className="hidden lg:flex flex-col space-y-6 pt-10 border-t border-slate-900/50">
-           <div className="flex items-center gap-5 p-4 bg-slate-900/40 rounded-[28px] border border-slate-800/50">
-              <div className="w-14 h-14 rounded-2xl bg-slate-800 overflow-hidden ring-2 ring-slate-800">
-                 <img src="https://api.dicebear.com/7.x/pixel-art/svg?seed=hippo&backgroundColor=b6e3f4" alt="Hippo" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex flex-col">
-                 <p className="text-white font-black text-sm italic">히포 (Hippoo_)</p>
-                 <p className="text-[#F472B6] font-black text-[10px] uppercase tracking-widest mt-0.5">Master Artisan</p>
-              </div>
-           </div>
-           <button onClick={() => window.open('https://www.youtube.com/@Hippoo_Hanuu', '_blank')} className="w-full py-4 bg-[#EF4444] text-white rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-red-600 active:scale-95 transition-all">YouTube 구독하기</button>
-           <BmcButton />
+  {user ? (
+    /* 로그인 했을 때: 구글 프로필 사진과 이름이 나옵니다 */
+    <div className="flex items-center gap-5 p-4 bg-slate-900/40 rounded-[28px] border border-slate-800/50">
+      <div className="w-14 h-14 rounded-2xl bg-slate-800 overflow-hidden ring-2 ring-pink-500/30">
+        <img src={user.photoURL || ""} alt="Profile" className="w-full h-full object-cover" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-black text-sm italic truncate">{user.displayName}</p>
+        <button onClick={handleLogout} className="text-[#F472B6] font-black text-[10px] uppercase hover:text-white transition-colors">Logout</button>
+      </div>
+    </div>
+  ) : (
+    /* 로그인 안 했을 때: 로그인 버튼이 나옵니다 */
+    <button onClick={handleLogin} className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-[#EC4899] hover:text-white transition-all">
+      Login with Google
+    </button>
+  )}
+  
+  {/* 아래 버튼들은 로그인 여부와 상관없이 항상 보입니다 */}
+  <button onClick={() => window.open('https://www.youtube.com/@Hippoo_Hanuu', '_blank')} className="w-full py-4 bg-[#EF4444] text-white rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-red-600 active:scale-95 transition-all">
+    YouTube 구독하기
+  </button>
+  <BmcButton />
+</div>
         </div>
       </div>
     </aside>
@@ -641,13 +691,58 @@ const App: React.FC = () => {
           </div>
         );
       case 'FRIENDS_COMMUNITY':
-        return (
-          <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700">
-             <div className="w-40 h-40 bg-indigo-500/10 rounded-[60px] flex items-center justify-center text-7xl shadow-2xl border border-indigo-500/20">💎</div>
-             <div className="space-y-6 max-w-2xl"><h2 className="text-5xl lg:text-7xl font-black italic text-white tracking-tighter"><span className="text-indigo-400">포인트 샵 & 친구</span> 서비스 준비 중</h2><p className="text-slate-400 text-xl lg:text-2xl font-medium leading-relaxed">Town Hub 활동으로 포인트를 모아 특별한 캔버스 프레임과 텍스트 효과를 구매해보세요. <br/><br/><span className="text-white font-bold">친구 추가, 실시간 작업 공유, 포인트 선물</span> 등 풍성한 소셜 기능이 업데이트될 예정입니다.</p></div>
-             <div className="flex flex-col items-center gap-8"><button onClick={() => setActiveView('STUDIO')} className="px-12 py-5 bg-white text-slate-900 rounded-full font-black text-xl hover:bg-indigo-400 hover:text-white transition-all shadow-2xl active:scale-95">아트스튜디오로 가기</button><BmcButton /></div>
+  return (
+    <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
+      <div className="flex flex-col lg:flex-row gap-8 h-full">
+        {/* 왼쪽: Friends 리스트 (도안 디자인) */}
+        <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+          <div className="flex justify-between items-center mb-10">
+            <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">
+              Friends <span className="text-sm not-italic font-bold text-slate-500 ml-4 lowercase">(1주일에 한번만 올릴 수 있습니다.)</span>
+            </h2>
+            <button className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg">등록하기</button>
           </div>
-        );
+          
+          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 카드 샘플 - 나중에 DB 연동 시 이 부분을 map으로 돌립니다 */}
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-black/40 border border-slate-800 rounded-[32px] p-6 flex gap-6 hover:border-pink-500/30 transition-all group">
+                  <div className="w-32 h-44 bg-slate-800 rounded-2xl flex items-center justify-center text-xs text-slate-600 font-bold border border-slate-700 group-hover:border-pink-500/20 transition-all">프로필 사진</div>
+                  <div className="flex-1 flex flex-col justify-between py-1">
+                    <div>
+                      <h4 className="text-xl font-black text-white mb-2 italic">닉네임</h4>
+                      <div className="flex gap-1.5 mb-3">
+                        <span className="text-[10px] bg-pink-500/10 text-pink-500 px-2 py-0.5 rounded-lg border border-pink-500/20 font-bold">#Casual</span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">자기소개 문구가 여기에 표시됩니다...</p>
+                    </div>
+                    <div className="bg-black p-2 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-400">ID: Hippo#0927</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 오른쪽: Discord (도안 디자인) */}
+        <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col">
+          <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
+          <div className="space-y-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:bg-indigo-500/5 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-indigo-500/20 rounded-full border border-indigo-500/20 flex items-center justify-center text-xl">💬</div>
+                  <span className="font-black text-white text-sm">디스코드 이름</span>
+                </div>
+                <button className="px-6 py-2 border-2 border-white rounded-xl text-xs font-black hover:bg-white hover:text-black transition-all">Join</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
       default: return null;
     }
   };
