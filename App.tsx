@@ -13,6 +13,19 @@ const getContrastColor = (hex: string) => {
   return ((r * 299) + (g * 587) + (b * 114)) / 1000 >= 128 ? 'black' : 'white';
 };
 
+// App.tsx 상단에 추가 또는 수정
+const getWeightedColorDistance = (c1: string, c2: string) => {
+  const r1 = parseInt(c1.slice(1, 3), 16), g1 = parseInt(c1.slice(3, 5), 16), b1 = parseInt(c1.slice(5, 7), 16);
+  const r2 = parseInt(c2.slice(1, 3), 16), g2 = parseInt(c2.slice(3, 5), 16), b2 = parseInt(c2.slice(5, 7), 16);
+  
+  // 초록색(g) 가중치를 조절하여 파랑이 초록으로 튀는 것을 방지
+  return Math.sqrt(
+    Math.pow((r1 - r2) * 0.3, 2) + 
+    Math.pow((g1 - g2) * 0.59, 2) + 
+    Math.pow((b1 - b2) * 0.11, 2)
+  );
+};
+
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<MainView>('HOME');
   const [toast, setToast] = useState<string | null>(null);
@@ -92,37 +105,111 @@ const App: React.FC = () => {
       setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, x: Math.max(0, Math.min(100, frameDragRef.current.initialPropX + dx)), y: Math.max(0, Math.min(100, frameDragRef.current.initialPropY + dy)) } : l));
     }
   };
-
+// App 컴포넌트 내부에 추가
+const formatPaletteIndex = (index: number) => {
+  const row = Math.floor((index - 1) / 8) + 1; // 한 행에 8칸 기준
+  const col = (index - 1) % 8 + 1;
+  return `${row}-${col}`;
+};
+  
   const exportAsZip = async () => {
     if (!pixelData || isExporting) return;
-    setIsExporting(true); showToast("가이드 파일 생성 중...");
+    setIsExporting(true); 
+    showToast("가이드 파일 생성 중...");
+    
+    // 인게임 팔레트 번호 포맷팅 함수 (8열 기준)
+    const formatPaletteIndex = (index: number) => {
+      const row = Math.floor((index - 1) / 8) + 1;
+      const col = (index - 1) % 8 + 1;
+      return `${row}-${col}`;
+    };
+
     try {
-      const zip = new JSZip(); const { width, height, colors, palette } = pixelData; const blockSize = 40; 
+      const zip = new JSZip(); 
+      const { width, height, colors, palette } = pixelData; 
+      const blockSize = 60; // 가독성을 위해 블록 크기를 살짝 키웠습니다.
+      
       for (let y = 0; y < height; y += splitSize) {
         for (let x = 0; x < width; x += splitSize) {
-          const curW = Math.min(splitSize, width - x); const curH = Math.min(splitSize, height - y);
-          const c = document.createElement('canvas'); const ctx = c.getContext('2d')!;
-          c.width = curW * blockSize; c.height = curH * blockSize;
+          const curW = Math.min(splitSize, width - x); 
+          const curH = Math.min(splitSize, height - y);
+          const c = document.createElement('canvas'); 
+          const ctx = c.getContext('2d')!;
+          
+          c.width = curW * blockSize; 
+          c.height = curH * blockSize;
+          
           for (let py = 0; py < curH; py++) {
             for (let px = 0; px < curW; px++) {
-              const idx = (y + py) * width + (x + px); const color = colors[idx];
+              const idx = (y + py) * width + (x + px); 
+              const color = colors[idx];
+              
+              // 팔레트 내 인덱스 찾기 (1부터 시작)
               const pIdx = palette.findIndex(p => p.hex === color) + 1;
-              ctx.fillStyle = color; ctx.fillRect(px * blockSize, py * blockSize, blockSize, blockSize);
-              ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 0.5; ctx.strokeRect(px * blockSize, py * blockSize, blockSize, blockSize);
-              ctx.fillStyle = getContrastColor(color); ctx.font = `bold ${blockSize / 2.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(pIdx), px * blockSize + blockSize / 2, py * blockSize + blockSize / 2);
+              // 인게임 좌표 형식(행-열)으로 변환
+              const gameCoord = formatPaletteIndex(pIdx);
+
+              // 1. 배경색 채우기
+              ctx.fillStyle = color; 
+              ctx.fillRect(px * blockSize, py * blockSize, blockSize, blockSize);
+              
+              // 2. 그리드 선 그리기
+              ctx.strokeStyle = "rgba(0,0,0,0.15)"; 
+              ctx.lineWidth = 0.5; 
+              ctx.strokeRect(px * blockSize, py * blockSize, blockSize, blockSize);
+              
+              // 3. 텍스트 가시성 설정
+              const contrastColor = getContrastColor(color);
+              ctx.font = `bold ${blockSize / 3.5}px sans-serif`; 
+              ctx.textAlign = 'center'; 
+              ctx.textBaseline = 'middle';
+
+              // 4. 글자 테두리(Stroke) 추가 - 밝은색/어두운색 모든 배경에서 글자가 잘 보이게 함
+              ctx.strokeStyle = contrastColor === 'white' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
+              ctx.lineWidth = 3;
+              ctx.strokeText(gameCoord, px * blockSize + blockSize / 2, py * blockSize + blockSize / 2);
+
+              // 5. 실제 텍스트 쓰기
+              ctx.fillStyle = contrastColor; 
+              ctx.fillText(gameCoord, px * blockSize + blockSize / 2, py * blockSize + blockSize / 2);
             }
           }
-          const blob = await new Promise<Blob | null>(r => c.toBlob(r)); if (blob) zip.file(`guide_y${Math.floor(y/splitSize)}_x${Math.floor(x/splitSize)}.png`, blob);
+          const blob = await new Promise<Blob | null>(r => c.toBlob(r)); 
+          if (blob) zip.file(`guide_y${Math.floor(y/splitSize)}_x${Math.floor(x/splitSize)}.png`, blob);
         }
       }
-      const orig = document.createElement('canvas'); orig.width = width; orig.height = height; const octx = orig.getContext('2d')!;
-      colors.forEach((col, i) => { octx.fillStyle = col; octx.fillRect(i % width, Math.floor(i / width), 1, 1); });
-      const oblob = await new Promise<Blob | null>(r => orig.toBlob(r)); if (oblob) zip.file("original_pixel.png", oblob);
-      const content = await zip.generateAsync({ type: 'blob' }); const url = window.URL.createObjectURL(content);
-      const link = document.createElement('a'); link.href = url; link.setAttribute('download', `town_art_guide_${Date.now()}.zip`);
-      document.body.appendChild(link); link.click(); document.body.removeChild(link); window.URL.revokeObjectURL(url);
-      setShowExportMenu(false); showToast("저장 완료!");
-    } catch (e) { showToast("오류 발생"); } finally { setIsExporting(false); }
+
+      // 원본 픽셀 이미지 저장 로직
+      const orig = document.createElement('canvas'); 
+      orig.width = width; 
+      orig.height = height; 
+      const octx = orig.getContext('2d')!;
+      colors.forEach((col, i) => { 
+        octx.fillStyle = col; 
+        octx.fillRect(i % width, Math.floor(i / width), 1, 1); 
+      });
+      
+      const oblob = await new Promise<Blob | null>(r => orig.toBlob(r)); 
+      if (oblob) zip.file("original_pixel.png", oblob);
+      
+      const content = await zip.generateAsync({ type: 'blob' }); 
+      const url = window.URL.createObjectURL(content);
+      const link = document.createElement('a'); 
+      link.href = url; 
+      link.setAttribute('download', `town_art_guide_${Date.now()}.zip`);
+      
+      document.body.appendChild(link); 
+      link.click(); 
+      document.body.removeChild(link); 
+      window.URL.revokeObjectURL(url);
+      
+      setShowExportMenu(false); 
+      showToast("저장 완료!");
+    } catch (e) { 
+      showToast("오류 발생"); 
+    } finally { 
+      setIsExporting(false); 
+    }
   };
 
   const startPixelation = async () => {
@@ -388,13 +475,14 @@ const App: React.FC = () => {
                             <div className="pixel-grid border-none shadow-none" style={{ gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))` }}>
                               {pixelData.colors.map((color, idx) => {
                                 const pId = paletteIndexMap.get(color); const pNum = pixelData.palette.findIndex(p => p.hex === color) + 1;
+                                const gameCoord = formatPaletteIndex(pNum);
                                 const isSelected = activePaletteId === pId; const colIndex = idx % pixelData.width; const rowIndex = Math.floor(idx / pixelData.width);
                                 const borderRight = (colIndex + 1) % 5 === 0 ? '1px solid rgba(255,255,255,0.2)' : '0.5px solid rgba(255,255,255,0.05)';
                                 const borderBottom = (rowIndex + 1) % 5 === 0 ? '1px solid rgba(255,255,255,0.2)' : '0.5px solid rgba(255,255,255,0.05)';
                                 return (
                                   <div key={idx} style={{ backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: zoom >= 250 ? Math.max(7, zoom / 60) + 'px' : '0px', borderRight, borderBottom }}
                                        className={`pixel-item flex items-center justify-center font-black transition-none ${isSelected ? 'ring-2 lg:ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl shadow-[#EC4899]/30' : 'hover:opacity-90'}`}
-                                       onClick={() => setActivePaletteId(isSelected ? null : pId)}>{zoom >= 250 && pNum}</div>
+                                       onClick={() => setActivePaletteId(isSelected ? null : pId)}>{zoom >= 250 && gameCoord} {/* pNum 대신 gameCoord 사용 */}</div>
                                 );
                               })}
                             </div>
