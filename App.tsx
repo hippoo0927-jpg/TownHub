@@ -24,7 +24,7 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
-
+const ADMIN_EMAIL = "hippoo0927@gmail.com"; 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -65,12 +65,7 @@ const App: React.FC = () => {
   const [nickname, setNickname] = useState<string>('');
   const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
-  // 친구 및 디스코드 모달 상태 
-  const [isFriendModalOpen, setIsFriendModalOpen] = useState(false); 
-  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
-  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
   
-  // 본인의 구글 이메일을 여기에 입력하세요 (관리자 지정)
   const adminEmails = ["hippoo0927@gmail.com"]; 
   const [isAdmin, setIsAdmin] = useState(false);
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
