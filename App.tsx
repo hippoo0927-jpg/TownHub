@@ -891,7 +891,24 @@ const App: React.FC = () => {
                   <button onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")} className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm">등록하기</button>
                 </div>
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                  <p className="text-slate-500 italic">등록된 친구가 없습니다.</p>
+                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+  {/* 👇 여기가 "글자" 대신 들어가는 "진짜 목록"이에요 */}
+  {friendsList.length > 0 ? (
+    friendsList.map((friend) => (
+      <div key={friend.id} className="bg-black/40 border border-slate-800 rounded-3xl p-6 flex items-center justify-between">
+        <h4 className="text-white font-black">{friend.nickname}</h4>
+        <button 
+          onClick={() => reportUser(friend.id, friend.nickname)}
+          className="text-red-500 text-[10px] border border-red-500/20 px-3 py-1 rounded-lg"
+        >
+          신고하기
+        </button>
+      </div>
+    ))
+  ) : (
+    <p className="text-slate-500 italic">등록된 친구가 없습니다.</p>
+  )}
+</div>
                 </div>
               </div>
               <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
