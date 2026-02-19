@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment, where, getDocs } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment, where, getDocs, Timestamp } from "firebase/firestore";
 import { AppStep, PixelData, StudioMode, TextLayer } from './types';
 import { processArtStudioPixel } from './services/pixelService';
 
@@ -16,6 +15,7 @@ import FriendsCommunity from './FriendsCommunity';
 import NicknameModal from './NicknameModal';
 import DiscordModal from './DiscordModal';
 import FriendModal from './FriendModal';
+import ReportModal from './ReportModal';
 import PolicyModal from './PolicyModal';
 import UpdateLogsModal from './UpdateLogsModal';
 
@@ -50,17 +50,20 @@ interface FriendItem {
   role: string;
   likes: string[];
   likesCount: number;
+  reports: any[];
+  reportsCount: number;
+  adminVerifiedAt?: any;
   createdAt?: any;
 }
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -84,6 +87,9 @@ const App: React.FC = () => {
   const [tempNickname, setTempNickname] = useState('');
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
   const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportTargetId, setReportTargetId] = useState<string | null>(null);
+  const [reportTargetNickname, setReportTargetNickname] = useState<string>("");
   const [activePolicy, setActivePolicy] = useState<PolicyType>(null);
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
 
@@ -172,6 +178,9 @@ const App: React.FC = () => {
         id: doc.id, 
         likes: doc.data().likes || [],
         likesCount: doc.data().likesCount || 0,
+        reports: doc.data().reports || [],
+        reportsCount: doc.data().reportsCount || 0,
+        adminVerifiedAt: doc.data().adminVerifiedAt || null,
         role: doc.data().role || 'user',
         ...doc.data() 
       } as FriendItem)));
@@ -225,7 +234,6 @@ const App: React.FC = () => {
     if (!user) return alert("로그인이 필요합니다.");
     if (!friendFormData.gameId || !friendFormData.description) return alert("내용을 모두 입력해주세요.");
     
-    // 7일 쿨타임 체크 (관리자 예외)
     if (!isAdmin && lastFriendReg) {
       const lastRegDate = lastFriendReg.toDate ? lastFriendReg.toDate() : new Date(lastFriendReg);
       const now = new Date();
@@ -236,36 +244,18 @@ const App: React.FC = () => {
       }
     }
 
-    // UI 피드백: 기존 프로필 교체 안내
     if (!window.confirm("기존에 등록된 프로필은 삭제되고 새로운 프로필로 교체됩니다. 계속하시겠습니까?")) return;
 
     try {
-      // 1인 1카드 유지 로직: 동일 gameId 또는 동일 uid의 기존 문서 삭제
       const qGameId = query(collection(db, "friends"), where("gameId", "==", friendFormData.gameId));
       const qUid = query(collection(db, "friends"), where("uid", "==", user.uid));
-      
-      const [snapGameId, snapUid] = await Promise.all([
-        getDocs(qGameId),
-        getDocs(qUid)
-      ]);
-
+      const [snapGameId, snapUid] = await Promise.all([getDocs(qGameId), getDocs(qUid)]);
       const deletePromises: any[] = [];
       snapGameId.forEach(d => deletePromises.push(deleteDoc(doc(db, "friends", d.id))));
-      snapUid.forEach(d => {
-        // gameId 쿼리와 중복될 수 있으므로 체크
-        if (!snapGameId.docs.find(gd => gd.id === d.id)) {
-          deletePromises.push(deleteDoc(doc(db, "friends", d.id)));
-        }
-      });
-      
-      if (deletePromises.length > 0) {
-        await Promise.all(deletePromises);
-      }
+      snapUid.forEach(d => { if (!snapGameId.docs.find(gd => gd.id === d.id)) deletePromises.push(deleteDoc(doc(db, "friends", d.id))); });
+      if (deletePromises.length > 0) await Promise.all(deletePromises);
 
-      // 관리자 식별: gameId가 "hippoo0927@gmail.com"이거나 이미 관리자 이메일인 경우
       const assignedRole = (friendFormData.gameId === "hippoo0927@gmail.com" || isAdmin) ? "admin" : "user";
-
-      // 새 프로필 등록 (기존 이미지 URL은 Cloudinary에서 수동 관리 혹은 추후 자동화 로직으로 처리됨을 명시)
       await addDoc(collection(db, "friends"), {
         nickname: nickname,
         title: userTitle,
@@ -277,14 +267,14 @@ const App: React.FC = () => {
         role: assignedRole,
         likes: [],
         likesCount: 0,
+        reports: [],
+        reportsCount: 0,
         createdAt: serverTimestamp()
       });
 
-      // 쿨타임 갱신
       const nowTs = new Date();
       await setDoc(doc(db, "users", user.uid), { lastFriendReg: serverTimestamp() }, { merge: true });
-      setLastFriendReg(nowTs); // UI 즉각 반영용
-      
+      setLastFriendReg(nowTs);
       setIsFriendModalOpen(false);
       setFriendFormData({ gameId: '', description: '', imageURL: '', category: '전체' });
       showToast("새로운 프로필 카드가 성공적으로 등록되었습니다!");
@@ -299,27 +289,73 @@ const App: React.FC = () => {
     const friendRef = doc(db, "friends", id);
     const friendDoc = await getDoc(friendRef);
     if (!friendDoc.exists()) return;
-    
     const likes = friendDoc.data().likes || [];
     if (likes.includes(user.uid)) {
-      await updateDoc(friendRef, {
-        likes: arrayRemove(user.uid),
-        likesCount: increment(-1)
-      });
+      await updateDoc(friendRef, { likes: arrayRemove(user.uid), likesCount: increment(-1) });
     } else {
-      await updateDoc(friendRef, {
-        likes: arrayUnion(user.uid),
-        likesCount: increment(1)
-      });
+      await updateDoc(friendRef, { likes: arrayUnion(user.uid), likesCount: increment(1) });
     }
+  };
+
+  const handleOpenReport = (id: string, nickname: string) => {
+    if (!user) return alert("로그인이 필요합니다.");
+    setReportTargetId(id);
+    setReportTargetNickname(nickname);
+    setIsReportModalOpen(true);
+  };
+
+  const handleConfirmReport = async (reason: string, detail: string) => {
+    if (!user || !reportTargetId) return;
+    const friendRef = doc(db, "friends", reportTargetId);
+    const friendDoc = await getDoc(friendRef);
+    if (!friendDoc.exists()) return;
+    
+    const reports = friendDoc.data().reports || [];
+    const alreadyReported = reports.some((r: any) => r.reporterId === user.uid);
+    if (alreadyReported) {
+      alert("이미 신고한 게시글입니다.");
+      setIsReportModalOpen(false);
+      return;
+    }
+
+    try {
+      await updateDoc(friendRef, {
+        reports: arrayUnion({
+          reporterId: user.uid,
+          reporterNickname: nickname,
+          reason,
+          detail,
+          timestamp: new Date().toISOString()
+        }),
+        reportsCount: increment(1)
+      });
+      showToast("신고가 접수되었습니다. 누적 3회 시 해당 카드는 검토를 위해 임시 숨김 처리됩니다.");
+    } catch (e) {
+      alert("신고 접수 중 오류 발생");
+    } finally {
+      setIsReportModalOpen(false);
+    }
+  };
+
+  const handleAdminCleanFriend = async (id: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm("이 카드를 클린 상태로 복구하시겠습니까? 신고 내역이 초기화됩니다.")) return;
+    try {
+      await updateDoc(doc(db, "friends", id), {
+        reports: [],
+        reportsCount: 0,
+        adminVerifiedAt: serverTimestamp()
+      });
+      showToast("카드가 복구되었습니다. 24시간 동안 클린 마크가 표시됩니다.");
+    } catch (e) { alert("복구 처리 실패"); }
   };
 
   const handleDeleteFriend = async (id: string) => {
     if (!isAdmin) return;
-    if (window.confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+    if (window.confirm("정말로 이 게시글을 영구 삭제하시겠습니까?")) {
       try {
         await deleteDoc(doc(db, "friends", id));
-        showToast("게시글이 삭제되었습니다.");
+        showToast("게시글이 영구 삭제되었습니다.");
       } catch (e) { alert("삭제 실패"); }
     }
   };
@@ -475,9 +511,10 @@ const App: React.FC = () => {
               onOpenDiscordModal={() => setIsDiscordModalOpen(true)} 
               onApproveDiscord={approveDiscord} 
               onRejectDiscord={rejectDiscord}
-              onReportUser={handleReportUser}
+              onReportUser={handleOpenReport}
               onDeleteFriend={handleDeleteFriend}
               onLikeFriend={handleLikeFriend}
+              onAdminCleanFriend={handleAdminCleanFriend}
             />
           )}
         </div>
@@ -489,6 +526,12 @@ const App: React.FC = () => {
         formData={friendFormData}
         setFormData={setFriendFormData}
         onAddFriend={handleAddFriend}
+      />
+      <ReportModal 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+        targetNickname={reportTargetNickname}
+        onConfirm={handleConfirmReport}
       />
       <NicknameModal isOpen={isNicknameModalOpen} value={tempNickname} onChange={setTempNickname} onSave={saveNickname} />
       <PolicyModal activePolicy={activePolicy} onClose={() => setActivePolicy(null)} />
