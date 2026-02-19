@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { AppStep, PixelData, StudioMode, ColorInfo, TOWN_PALETTE_HEX, TextLayer } from './types';
 import { processArtStudioPixel } from './services/pixelService';
@@ -15,6 +14,19 @@ interface UpdateLog {
   date: string;
   content: string;
 }
+
+interface DiscordItem {
+  id: string;
+  name: string;
+  link: string;
+  desc: string;
+  userId?: string;
+  userEmail?: string;
+  applicantNickname?: string;
+  createdAt?: any;
+}
+
+// 환경 변수 접근 방식 (기존 process.env 방식 유지)
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -24,12 +36,14 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
-const ADMIN_EMAIL = "hippoo0927@gmail.com"; 
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
+
+const adminEmails = ["hippoo0927@gmail.com"]; 
 
 const getContrastColor = (hex: string) => {
   const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
@@ -42,9 +56,6 @@ const formatPaletteIndex = (index: number) => {
   return `${row}-${col}`;
 };
 
-/**
- * Buy Me a Coffee 커스텀 버튼
- */
 const BmcButton: React.FC = () => {
   return (
     <button 
@@ -58,119 +69,25 @@ const BmcButton: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // 1. 상태 관리
   const [user, setUser] = useState<User | null>(null);
-  // --- 추가된 상태값 ---
-  const [role, setRole] = useState<'admin' | 'user'>('user');
   const [nickname, setNickname] = useState<string>('');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   
-  const adminEmails = ["hippoo0927@gmail.com"]; 
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [approvedDiscords, setApprovedDiscords] = useState<any[]>([]);
-  const [pendingDiscords, setPendingDiscords] = useState<any[]>([]);
+  const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
+  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
+  const [approvedDiscords, setApprovedDiscords] = useState<DiscordItem[]>([]);
+  const [pendingDiscords, setPendingDiscords] = useState<DiscordItem[]>([]);
+  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
 
-  // 3. 관리자 체크 및 데이터 실시간 로드
-  useEffect(() => {
-    if (user && adminEmails.includes(user.email || "")) setIsAdmin(true);
-    
-    
-    // 승인된 서버 불러오기
-    const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), orderBy("createdAt", "desc")), (snap) => {
-      setApprovedDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    // 대기 중인 신청 불러오기 (관리자용)
-    const unsubPending = onSnapshot(query(collection(db, "discord_requests"), orderBy("createdAt", "desc")), (snap) => {
-      setPendingDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return () => { unsubApproved(); unsubPending(); };
-  }, [user]);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        // 관리자 여부 확인
-        if (currentUser.email === ADMIN_EMAIL) {
-          setRole('admin');
-        }
-        
-        // Firestore에서 닉네임 정보 가져오기
-        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-        if (userDoc.exists()) {
-          setNickname(userDoc.data().nickname);
-        } else {
-          // 정보가 없으면 닉네임 설정창 띄우기
-          setIsNicknameModalOpen(true);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 닉네임 저장 함수
-  const saveNickname = async () => {
-    if (!user || !tempNickname.trim()) return;
-    try {
-      await setDoc(doc(db, "users", user.uid), {
-        nickname: tempNickname,
-        role: user.email === ADMIN_EMAIL ? 'admin' : 'user',
-        createdAt: serverTimestamp()
-      });
-      setNickname(tempNickname);
-      setIsNicknameModalOpen(false);
-      showToast("닉네임이 설정되었습니다!");
-    } catch (e) {
-      showToast("저장에 실패했습니다.");
-    }
-  };
-  // -----------------------
-
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      alert("로그인에 실패했습니다.");
-    }
-  };
-
-
-  // 디스코드 신청 제출
-  const submitDiscordRequest = async () => {
-    if (!discordData.name || !discordData.link) return alert("필수 항목을 입력해주세요.");
-    try {
-      await addDoc(collection(getFirestore(), "discord_requests"), {
-        ...discordData,
-        userId: user?.uid,
-        userEmail: user?.email,
-        createdAt: serverTimestamp()
-      });
-      alert("신청 완료! 관리자 승인 후 리스트에 나타납니다.");
-      setIsDiscordModalOpen(false);
-      setDiscordData({ name: '', link: '', desc: '' });
-    } catch (e) { alert("저장 실패"); }
-  };
-
-  // 관리자 전용 승인 처리
-  const approveDiscord = async (req: any) => {
-    try {
-      const db = getFirestore();
-      await addDoc(collection(db, "discord_servers"), { ...req, createdAt: serverTimestamp() });
-      // 승인 후 요청 목록에서는 가독성을 위해 필터링하거나 삭제 로직 추가 가능
-      alert("서버 승인이 완료되었습니다!");
-    } catch (e) { alert("승인 처리 중 오류 발생"); }
-  };
-
-  const handleLogout = () => signOut(auth);
   const [activeView, setActiveView] = useState<MainView>('HOME');
   const [toast, setToast] = useState<string | null>(null);
   const [step, setStep] = useState<AppStep>('MODE_SELECT');
   const [studioMode, setStudioMode] = useState<StudioMode>('PATTERN');
   const [canvasDim, setCanvasDim] = useState({ w: 48, h: 48 });
   const [crop, setCrop] = useState({ x: 0, y: 0, scale: 0.8 });
-  const [zoom, setZoom] = useState(400);
+  const [zoom, setZoom] = useState(400); // 400 = 100% scale
   const [pixelData, setPixelData] = useState<PixelData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -186,7 +103,6 @@ const App: React.FC = () => {
   const [isLogsLoading, setIsLogsLoading] = useState(true);
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
 
-  // 2. Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageObjRef = useRef<HTMLImageElement | null>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -194,10 +110,105 @@ const App: React.FC = () => {
   const frameContainerRef = useRef<HTMLDivElement>(null);
   const editorScrollRef = useRef<HTMLDivElement>(null);
 
-  // 3. 유틸리티
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setIsAdmin(adminEmails.includes(currentUser.email || ""));
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (userDoc.exists()) {
+          setNickname(userDoc.data().nickname);
+        } else {
+          setIsNicknameModalOpen(true);
+        }
+      } else {
+        setIsAdmin(false);
+        setNickname('');
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), orderBy("createdAt", "desc")), (snap) => {
+      setApprovedDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DiscordItem)));
+    });
+
+    let unsubPending = () => {};
+    if (isAdmin) {
+      unsubPending = onSnapshot(query(collection(db, "discord_requests"), orderBy("createdAt", "desc")), (snap) => {
+        setPendingDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DiscordItem)));
+      });
+    }
+
+    return () => { unsubApproved(); unsubPending(); };
+  }, [isAdmin]);
+
+  const saveNickname = async () => {
+    if (!user || !tempNickname.trim()) return;
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        nickname: tempNickname,
+        role: adminEmails.includes(user.email || "") ? 'admin' : 'user',
+        createdAt: serverTimestamp()
+      });
+      setNickname(tempNickname);
+      setIsNicknameModalOpen(false);
+      showToast("닉네임이 설정되었습니다!");
+    } catch (e) {
+      showToast("저장에 실패했습니다.");
+    }
+  };
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      alert("로그인에 실패했습니다.");
+    }
+  };
+
+  const handleLogout = () => signOut(auth);
+
+  const submitDiscordRequest = async () => {
+    if (!discordData.name || !discordData.link) return alert("필수 항목을 입력해주세요.");
+    if (!user) return alert("로그인이 필요합니다.");
+    try {
+      await addDoc(collection(db, "discord_requests"), {
+        ...discordData,
+        userId: user.uid,
+        userEmail: user.email,
+        applicantNickname: nickname,
+        createdAt: serverTimestamp()
+      });
+      showToast("신청 완료! 관리자 승인 후 리스트에 나타납니다.");
+      setIsDiscordModalOpen(false);
+      setDiscordData({ name: '', link: '', desc: '' });
+    } catch (e) { alert("신청 제출 실패"); }
+  };
+
+  const approveDiscord = async (req: DiscordItem) => {
+    try {
+      const { id, ...data } = req;
+      await addDoc(collection(db, "discord_servers"), { 
+        ...data, 
+        createdAt: serverTimestamp() 
+      });
+      await deleteDoc(doc(db, "discord_requests", id));
+      showToast("서버 승인이 완료되었습니다!");
+    } catch (e) { alert("승인 처리 중 오류 발생"); }
+  };
+
+  const rejectDiscord = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "discord_requests", id));
+      showToast("신청이 거절되었습니다.");
+    } catch (e) { alert("거절 처리 실패"); }
   };
 
   useEffect(() => {
@@ -240,7 +251,6 @@ const App: React.FC = () => {
     setCrop(prev => ({ ...prev, scale: Math.max(scaleW, scaleH), x: 0, y: 0 }));
   };
 
-  // 4. 드래그 엔진
   const handleDragStart = (e: any, isText: boolean = false, textId: string | null = null) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -270,7 +280,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 5. 핵심 엔진: ZIP Export (5x5 보조선 포함)
   const exportAsZip = async () => {
     if (!pixelData || isExporting) return;
     setIsExporting(true);
@@ -279,10 +288,10 @@ const App: React.FC = () => {
       const zip = new JSZip();
       const { width, height, colors, palette } = pixelData;
       const blockSize = 60;
-      for (let y = 0; y < height; y += splitSize) {
-        for (let x = 0; x < width; x += splitSize) {
-          const curW = Math.min(splitSize, width - x);
-          const curH = Math.min(splitSize, height - y);
+      for (let yOffset = 0; yOffset < height; yOffset += splitSize) {
+        for (let xOffset = 0; xOffset < width; xOffset += splitSize) {
+          const curW = Math.min(splitSize, width - xOffset);
+          const curH = Math.min(splitSize, height - yOffset);
           const c = document.createElement('canvas');
           const ctx = c.getContext('2d')!;
           c.width = curW * blockSize;
@@ -290,23 +299,19 @@ const App: React.FC = () => {
           
           for (let py = 0; py < curH; py++) {
             for (let px = 0; px < curW; px++) {
-              const globalX = x + px;
-              const globalY = y + py;
+              const globalX = xOffset + px;
+              const globalY = yOffset + py;
               const idx = globalY * width + globalX;
               const color = colors[idx];
               const pIdx = palette.findIndex(p => p.hex === color) + 1;
               const gameCoord = formatPaletteIndex(pIdx);
               
-              // 픽셀 배경
               ctx.fillStyle = color;
               ctx.fillRect(px * blockSize, py * blockSize, blockSize, blockSize);
-              
-              // 기본 1px 그리드
               ctx.strokeStyle = "rgba(0,0,0,0.1)";
               ctx.lineWidth = 0.5;
               ctx.strokeRect(px * blockSize, py * blockSize, blockSize, blockSize);
 
-              // 5x5 강조 그리드 (굵고 어두운 선)
               if ((globalX + 1) % 5 === 0) {
                 ctx.strokeStyle = "rgba(0,0,0,0.4)";
                 ctx.lineWidth = 3;
@@ -324,7 +329,6 @@ const App: React.FC = () => {
                 ctx.stroke();
               }
 
-              // 좌표 텍스트
               const contrastColor = getContrastColor(color);
               ctx.font = `bold ${blockSize / 3.5}px sans-serif`;
               ctx.textAlign = 'center';
@@ -337,7 +341,7 @@ const App: React.FC = () => {
             }
           }
           const blob = await new Promise<Blob | null>(r => c.toBlob(r));
-          if (blob) zip.file(`guide_y${Math.floor(y/splitSize)}_x${Math.floor(x/splitSize)}.png`, blob);
+          if (blob) zip.file(`guide_y${Math.floor(yOffset/splitSize)}_x${Math.floor(xOffset/splitSize)}.png`, blob);
         }
       }
       const orig = document.createElement('canvas');
@@ -360,7 +364,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 6. 핵심 엔진: 변환 로직
   const startPixelation = async () => {
     if (!previewCanvasRef.current) return;
     setIsProcessing(true);
@@ -409,25 +412,22 @@ const App: React.FC = () => {
     }
   }, [step, crop, canvasDim, textLayers]);
 
-  // UI 컴포넌트들
   const Sidebar = () => (
-  <aside className="fixed bottom-0 left-0 right-0 lg:relative lg:w-[420px] lg:h-full bg-slate-950/50 backdrop-blur-3xl border-t lg:border-t-0 lg:border-r border-slate-900/50 p-6 lg:p-12 flex flex-row lg:flex-col items-center lg:items-stretch justify-between lg:justify-start gap-8 z-[100]">
-    {/* 로고 섹션 */}
-    <div className="flex items-center gap-6 group cursor-pointer" onClick={() => setActiveView('HOME')}>
-      <div className="w-14 h-14 bg-gradient-to-br from-[#EC4899] to-[#8B5CF6] rounded-[22px] flex items-center justify-center shadow-2xl shadow-pink-500/20 group-hover:scale-110 group-active:scale-95 transition-all duration-500">
-        <span className="text-white font-black text-2xl italic tracking-tighter">T</span>
+    <aside className="fixed bottom-0 left-0 right-0 lg:relative lg:w-[420px] lg:h-full bg-slate-950/50 backdrop-blur-3xl border-t lg:border-t-0 lg:border-r border-slate-900/50 p-6 lg:p-12 flex flex-row lg:flex-col items-center lg:items-stretch justify-between lg:justify-start gap-8 z-[100]">
+      <div className="flex items-center gap-6 group cursor-pointer" onClick={() => setActiveView('HOME')}>
+        <div className="w-14 h-14 bg-gradient-to-br from-[#EC4899] to-[#8B5CF6] rounded-[22px] flex items-center justify-center shadow-2xl shadow-pink-500/20 group-hover:scale-110 group-active:scale-95 transition-all duration-500">
+          <span className="text-white font-black text-2xl italic tracking-tighter">T</span>
+        </div>
+        <div className="hidden lg:block">
+          <h1 className="text-2xl font-black italic text-white tracking-tighter leading-none uppercase">TownHub</h1>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1.5 flex items-center gap-2">
+            <span className="w-1 h-1 bg-pink-500 rounded-full animate-pulse"></span>
+            Art District
+          </p>
+        </div>
       </div>
-      <div className="hidden lg:block">
-        <h1 className="text-2xl font-black italic text-white tracking-tighter leading-none uppercase">TownHub</h1>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mt-1.5 flex items-center gap-2">
-          <span className="w-1 h-1 bg-pink-500 rounded-full animate-pulse"></span>
-          Art District
-        </p>
-      </div>
-    </div>
 
-    {/* 메뉴 네비게이션 */}
-    <nav className="flex lg:flex-col items-center lg:items-stretch gap-3 lg:mt-12">
+      <nav className="flex lg:flex-col items-center lg:items-stretch gap-3 lg:mt-12">
       {[
         { id: 'HOME', label: 'Home', icon: '🏠' },
         { id: 'STUDIO', label: 'Art Studio', icon: '🎨' },
@@ -568,51 +568,36 @@ const App: React.FC = () => {
       </div>
     );
   };
-const NicknameModal = () => {
+
+  const NicknameModal = () => {
     if (!isNicknameModalOpen) return null;
     return (
       <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
         <div className="bg-slate-900 border border-slate-800 rounded-[48px] p-10 max-w-md w-full text-center">
           <h3 className="text-3xl font-black text-white mb-6 italic">WELCOME!</h3>
           <p className="text-slate-400 mb-8">사용하실 닉네임을 설정해주세요.</p>
-          <input 
-            type="text" 
-            value={tempNickname} 
-            onChange={(e) => setTempNickname(e.target.value)}
-            className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500"
-            placeholder="닉네임 입력 (최대 10자)"
-            maxLength={10}
-          />
+          <input type="text" value={tempNickname} onChange={(e) => setTempNickname(e.target.value)} className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500" placeholder="닉네임 입력 (최대 10자)" maxLength={10} />
           <button onClick={saveNickname} className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black hover:bg-pink-600 transition-all">시작하기</button>
         </div>
       </div>
     );
   };
 
-  /**
-   * 업데이트 로그 전체 내역 모달
-   */
   const UpdateLogsModal = () => {
     if (!isLogsModalOpen) return null;
     return (
-      <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setIsLogsModalOpen(false)}>
-        <div className="bg-slate-900 border border-slate-800 rounded-[56px] p-10 lg:p-16 max-w-4xl w-full max-h-[85vh] shadow-[0_0_100px_rgba(0,0,0,0.5)] relative flex flex-col animate-in zoom-in-95 duration-300 overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[2500] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl" onClick={() => setIsLogsModalOpen(false)}>
+        <div className="bg-slate-900 border border-slate-800 rounded-[56px] p-10 lg:p-16 max-w-4xl w-full max-h-[85vh] shadow-2xl relative flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
           <button onClick={() => setIsLogsModalOpen(false)} className="absolute top-10 right-10 text-slate-500 hover:text-white transition-colors text-2xl">✕</button>
           <h3 className="text-4xl lg:text-5xl font-black italic text-white mb-10 border-l-4 border-[#EC4899] pl-6 uppercase tracking-tighter">Town Hub <span className="text-[#EC4899]">History</span></h3>
-          
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-4 space-y-4">
              {updateLogs.map((log, idx) => (
                <div key={idx} className="flex flex-col md:flex-row md:items-center gap-4 p-8 bg-slate-800/40 rounded-[32px] border border-slate-800 hover:border-slate-700 transition-all">
-                  <div className="md:w-32 shrink-0">
-                    <span className="text-[#EC4899] font-black font-mono text-xs uppercase tracking-widest">{log.date}</span>
-                  </div>
-                  <div className="flex-1">
-                    <span className="text-slate-200 text-lg font-bold leading-snug">{log.content}</span>
-                  </div>
+                  <div className="md:w-32 shrink-0"><span className="text-[#EC4899] font-black font-mono text-xs uppercase tracking-widest">{log.date}</span></div>
+                  <div className="flex-1"><span className="text-slate-200 text-lg font-bold leading-snug">{log.content}</span></div>
                </div>
              ))}
           </div>
-          
           <button onClick={() => setIsLogsModalOpen(false)} className="mt-10 w-full py-6 bg-white text-slate-900 rounded-[32px] font-black text-xl hover:bg-[#EC4899] hover:text-white transition-all">Close History</button>
         </div>
       </div>
@@ -634,14 +619,10 @@ const NicknameModal = () => {
         {steps.map((s, i) => (
           <React.Fragment key={s.key}>
             <div className="flex flex-col items-center relative">
-              <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center font-black text-xs transition-all duration-500 ${i <= currentIdx ? 'bg-[#EC4899] text-white shadow-[0_0_15px_rgba(236,72,153,0.5)] scale-110' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}>
-                {i < currentIdx ? '✓' : i + 1}
-              </div>
+              <div className={`w-8 h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center font-black text-xs transition-all duration-500 ${i <= currentIdx ? 'bg-[#EC4899] text-white shadow-[0_0_15px_rgba(236,72,153,0.5)] scale-110' : 'bg-slate-800 text-slate-500 border border-slate-700'}`}>{i < currentIdx ? '✓' : i + 1}</div>
               <span className={`absolute -bottom-6 whitespace-nowrap text-[10px] lg:text-[11px] font-bold tracking-tighter ${i <= currentIdx ? 'text-[#EC4899]' : 'text-slate-600'}`}>{s.label}</span>
             </div>
-            {i < steps.length - 1 && (
-              <div className={`flex-1 h-[2px] mx-2 lg:mx-4 transition-all duration-1000 ${i < currentIdx ? 'bg-[#EC4899]' : 'bg-slate-800'}`} />
-            )}
+            {i < steps.length - 1 && (<div className={`flex-1 h-[2px] mx-2 lg:mx-4 transition-all duration-1000 ${i < currentIdx ? 'bg-[#EC4899]' : 'bg-slate-800'}`} />)}
           </React.Fragment>
         ))}
       </div>
@@ -650,7 +631,6 @@ const NicknameModal = () => {
 
   const selectedText = textLayers.find(l => l.id === selectedTextId);
 
-  // 메인 렌더링 로직 (View Switch)
   const renderMainContent = () => {
     switch (activeView) {
       case 'HOME':
@@ -727,8 +707,8 @@ const NicknameModal = () => {
             <div className="h-full max-w-7xl mx-auto flex flex-col relative">
               {step === 'MODE_SELECT' && (
                 <div className="flex-1 flex flex-col md:grid md:grid-cols-2 gap-8 lg:gap-14 items-center justify-center p-4">
-                  <button onClick={() => { setStudioMode('PATTERN'); setStep('SETUP'); setCanvasDim({w:48, h:48}); }} className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] border-2 border-slate-800 hover:border-[#EC4899] hover:shadow-[0_0_50px_rgba(236,72,153,0.3)] transition-all flex flex-col items-center justify-center group"><div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">🎨</div><h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">픽셀 도안 제작</h3></button>
-                  <button onClick={() => { setStudioMode('BOOK_COVER'); setCanvasDim({w:150, h:84}); setStep('UPLOAD'); }} className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] border-2 border-slate-800 hover:border-cyan-500 hover:shadow-[0_0_50px_rgba(6,182,212,0.3)] transition-all flex flex-col items-center justify-center group"><div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">📖</div><h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">북커버 제작</h3></button>
+                  <button onClick={() => { setStudioMode('PATTERN'); setStep('SETUP'); setCanvasDim({w:48, h:48}); }} className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] border-2 border-slate-800 hover:border-[#EC4899] transition-all flex flex-col items-center justify-center group"><div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">🎨</div><h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">픽셀 도안 제작</h3></button>
+                  <button onClick={() => { setStudioMode('BOOK_COVER'); setCanvasDim({w:150, h:84}); setStep('UPLOAD'); }} className="w-full aspect-square max-w-md bg-slate-900/40 p-12 lg:p-20 rounded-[64px] border-2 border-slate-800 hover:border-cyan-500 transition-all flex flex-col items-center justify-center group"><div className="text-7xl lg:text-[100px] mb-10 group-hover:scale-110 transition-transform">📖</div><h3 className="text-3xl lg:text-5xl font-black italic text-white text-center">북커버 제작</h3></button>
                 </div>
               )}
               {step === 'SETUP' && (
@@ -755,7 +735,7 @@ const NicknameModal = () => {
                       }
                     }} />
                     <div className="w-24 h-24 lg:w-40 lg:h-40 bg-slate-900 rounded-[40px] flex items-center justify-center text-5xl lg:text-8xl mb-8 group-hover:bg-[#EC4899] transition-all">📸</div>
-                    <p className="font-black text-2xl lg:text-5xl text-white italic tracking-tighter">이미지를 선택하세요</p>
+                    <p className="font-black text-2xl lg:text-5xl text-white italic tracking-tighter">이미지 선택</p>
                   </div>
                 </div>
               )}
@@ -804,91 +784,86 @@ const NicknameModal = () => {
                 </div>
               )}
               {step === 'EDITOR' && pixelData && (
-  <div className="flex flex-col lg:flex-row gap-0 h-full min-h-0 animate-in fade-in overflow-hidden relative">
-    <div className="flex-1 flex flex-col gap-6 lg:gap-10 min-h-0 overflow-hidden px-4">
-      <div className="bg-slate-900/40 p-5 rounded-[40px] border border-slate-800/50 flex items-center justify-between shrink-0 z-[100] backdrop-blur-md">
-         <button onClick={()=>setStep(studioMode === 'BOOK_COVER' ? 'TEXT' : 'FRAME')} className="px-6 py-3 bg-slate-800 rounded-2xl font-black text-[11px] text-slate-400 hover:text-white transition-all">이전 단계</button>
-         <div className="flex items-center gap-3 lg:gap-6">
-            <div className="bg-slate-800 p-1.5 rounded-2xl flex items-center gap-3">
-              <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">-</button>
-              <span className="text-[11px] font-black w-12 text-center text-white">{zoom}%</span>
-              <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">+</button>
-            </div>
-            <div className="relative">
-              <button onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }} className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black shadow-2xl text-[11px] hover:bg-[#EC4899] hover:text-white transition-all">Export {showExportMenu ? '▲' : '▼'}</button>
-              {showExportMenu && (
-                <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right animate-in zoom-in-95">
-                  <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
-                  <button disabled={isExporting} onClick={exportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all"><div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div><span className="font-black text-white text-xs">ZIP Guide Download</span></button>
+                <div className="flex flex-col lg:flex-row gap-0 h-full min-h-0 animate-in fade-in overflow-hidden relative">
+                  <div className="flex-1 flex flex-col gap-6 lg:gap-10 min-h-0 overflow-hidden px-4">
+                    <div className="bg-slate-900/40 p-5 rounded-[40px] border border-slate-800/50 flex items-center justify-between shrink-0 z-[100] backdrop-blur-md">
+                       <button onClick={()=>setStep(studioMode === 'BOOK_COVER' ? 'TEXT' : 'FRAME')} className="px-6 py-3 bg-slate-800 rounded-2xl font-black text-[11px] text-slate-400 hover:text-white transition-all">이전 단계</button>
+                       <div className="flex items-center gap-3 lg:gap-6">
+                          <div className="bg-slate-800 p-1.5 rounded-2xl flex items-center gap-3">
+                            <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">-</button>
+                            <span className="text-[11px] font-black w-12 text-center text-white">{Math.round(zoom / 4)}%</span>
+                            <button onClick={()=>setZoom(z=>Math.min(2000,z+100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">+</button>
+                          </div>
+                          <div className="relative">
+                            <button onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }} className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black shadow-2xl text-[11px]">Export {showExportMenu ? '▲' : '▼'}</button>
+                            {showExportMenu && (
+                              <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right">
+                                <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
+                                <button disabled={isExporting} onClick={exportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all"><div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div><span className="font-black text-white text-xs">ZIP Guide Download</span></button>
+                              </div>
+                            )}
+                          </div>
+                       </div>
+                    </div>
+                    {/* GPU 가속을 활용한 줌 레이아웃 최적화 섹션 */}
+                    <div ref={editorScrollRef} className="flex-1 bg-slate-900/20 rounded-[64px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10">
+                      <div className="inline-block p-[100px] lg:p-[400px]">
+                        <div 
+                          className="bg-slate-900 p-8 lg:p-16 border-[12px] border-black shadow-2xl rounded-sm"
+                          style={{ 
+                            transform: `scale(${zoom / 400})`, 
+                            transformOrigin: '0 0',
+                            willChange: 'transform',
+                            imageRendering: 'pixelated'
+                          }}
+                        >
+                          <div className="pixel-grid" style={{
+                            display: 'grid', 
+                            gridTemplateColumns: `repeat(${pixelData.width}, 20px)`,
+                            width: `${pixelData.width * 20}px`
+                          }}>
+                            {pixelData.colors.map((color, idx) => {
+                              const rowIdx = Math.floor(idx / pixelData.width);
+                              const colIdx = idx % pixelData.width;
+                              const pId = paletteIndexMap.get(color);
+                              const isSelected = activePaletteId === pId;
+                              const isMajorRight = (colIdx + 1) % 5 === 0 && (colIdx + 1) !== pixelData.width;
+                              const isMajorBottom = (rowIdx + 1) % 5 === 0 && (rowIdx + 1) !== pixelData.height;
+                              return (
+                                <div key={idx} 
+                                  style={{
+                                    backgroundColor: color, 
+                                    width: '20px', 
+                                    height: '20px', 
+                                    color: getContrastColor(color), 
+                                    fontSize: '6px' // 스케일에 따라 함께 커지므로 고정값 사용
+                                  }}
+                                  className={`pixel-item flex items-center justify-center font-black transition-opacity border-black/5 ${isMajorRight ? 'border-r-2 border-r-black/40' : 'border-r-[0.5px]'} ${isMajorBottom ? 'border-b-2 border-b-black/40' : 'border-b-[0.5px]'} ${isSelected ? 'ring-2 ring-[#EC4899] z-10 shadow-2xl' : 'hover:opacity-90'}`}
+                                  onClick={() => setActivePaletteId(isSelected ? null : pId)}>
+                                  {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0'}`}>
+                    <div className="w-[85vw] lg:w-[440px] bg-slate-900 p-8 lg:p-14 rounded-l-[48px] lg:rounded-[100px] shadow-2xl border-l border-slate-800 h-full flex flex-col min-h-0">
+                       <div className="flex items-center justify-between mb-8 shrink-0"><h3 className="font-black italic text-2xl text-white">Palette <span className="text-[11px] bg-slate-800 px-4 py-1.5 rounded-full not-italic text-slate-500">{pixelData.palette.length}</span></h3><button onClick={() => setShowPalette(false)} className="lg:hidden text-slate-500 font-black text-2xl">✕</button></div>
+                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2"><div className="grid grid-cols-1 gap-4 lg:gap-6">
+                           {pixelData.palette.map((p, i) => (
+                             <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} className={`flex items-center gap-5 p-4 rounded-[28px] border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-slate-800 border-[#EC4899] shadow-xl scale-[1.03]':'border-transparent hover:bg-slate-800/40'}`}><div className="w-12 h-12 rounded-[16px] flex items-center justify-center font-black text-sm border-2 border-slate-900 shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div><div className="flex-1 min-w-0 pr-1"><div className="flex items-center gap-3 w-full"><p className="text-sm font-black truncate text-white italic">{p.index}</p><span className="text-[9px] bg-slate-900 text-slate-400 px-3 py-1.5 rounded-xl font-black shrink-0">{p.count} PX</span></div><p className="text-[10px] font-mono text-slate-600 uppercase mt-1.5">{p.hex}</p></div></div>
+                           ))}
+                       </div></div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-         </div>
-      </div>
-
-      {/* 최적화된 워크스페이스 영역 */}
-      <div ref={editorScrollRef} className="flex-1 bg-slate-900/20 rounded-[64px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10">
-        <div className="inline-block p-[100px] lg:p-[300px]">
-          <div 
-            className="bg-slate-900 p-8 lg:p-16 border-[12px] border-black shadow-2xl rounded-sm transition-transform duration-75 ease-out"
-            style={{ 
-              // 1. 변수를 일일이 계산하지 않고 전체를 scale로 조절 (핵심!)
-              transform: `scale(${zoom / 400})`, 
-              transformOrigin: 'center center',
-              willChange: 'transform'
-            }}
-          >
-            <div 
-              className="pixel-grid" 
-              style={{
-                display: 'grid', 
-                // 2. 셀 크기는 20px로 고정하고 scale만 바꿈
-                gridTemplateColumns: `repeat(${pixelData.width}, 20px)`
-              }}
-            >
-              {pixelData.colors.map((color, idx) => {
-                const row = Math.floor(idx / pixelData.width);
-                const col = idx % pixelData.width;
-                const pId = paletteIndexMap.get(color);
-                const isSelected = activePaletteId === pId;
-                const isMajorRight = (col + 1) % 5 === 0 && (col + 1) !== pixelData.width;
-                const isMajorBottom = (row + 1) % 5 === 0 && (row + 1) !== pixelData.height;
-
-                return (
-                  <div key={idx} 
-                    style={{
-                      backgroundColor: color, 
-                      width: '20px', 
-                      height: '20px', 
-                      color: getContrastColor(color),
-                      // 3. 텍스트 크기 가독성 조절
-                      fontSize: zoom >= 250 ? '8px' : '0px'
-                    }}
-                    className={`pixel-item flex items-center justify-center font-black transition-all border-black/5 ${isMajorRight ? 'border-r-2 border-r-black/40' : 'border-r-[0.5px]'} ${isMajorBottom ? 'border-b-2 border-b-black/40' : 'border-b-[0.5px]'} ${isSelected ? 'ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl' : 'hover:opacity-90'}`}
-                    onClick={() => setActivePaletteId(isSelected ? null : pId)}>
-                    {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
-                  </div>
-                );
-              })}
-            </div>
           </div>
-        </div>
-      </div>
-    </div>
-    
-    {/* 오른쪽 팔레트 영역은 기존과 동일 */}
-    <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0'}`}>
-      <div className="w-[85vw] lg:w-[440px] bg-slate-900 p-8 lg:p-14 rounded-l-[48px] lg:rounded-[100px] shadow-2xl border-l border-slate-800 h-full flex flex-col min-h-0">
-         <div className="flex items-center justify-between mb-8 shrink-0"><h3 className="font-black italic text-2xl text-white">Palette <span className="text-[11px] bg-slate-800 px-4 py-1.5 rounded-full not-italic text-slate-500">{pixelData.palette.length}</span></h3><button onClick={() => setShowPalette(false)} className="lg:hidden text-slate-500 font-black text-2xl">✕</button></div>
-         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2"><div className="grid grid-cols-1 gap-4 lg:gap-6">
-             {pixelData.palette.map((p, i) => (
-               <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} className={`flex items-center gap-5 p-4 rounded-[28px] border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-slate-800 border-[#EC4899] shadow-xl scale-[1.03]':'border-transparent hover:bg-slate-800/40'}`}><div className="w-12 h-12 rounded-[16px] flex items-center justify-center font-black text-sm border-2 border-slate-900 shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div><div className="flex-1 min-w-0 pr-1"><div className="flex items-center gap-3 w-full"><p className="text-sm font-black truncate text-white italic">{p.index}</p><span className="text-[9px] bg-slate-900 text-slate-400 px-3 py-1.5 rounded-xl font-black shrink-0">{p.count} PX</span></div><p className="text-[10px] font-mono text-slate-600 uppercase mt-1.5">{p.hex}</p></div></div>
-             ))}
-         </div></div>
-      </div>
-    </div>
-  </div>
-)}
+        );
       case 'DESIGN_FEED':
         return (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700">
@@ -900,157 +875,120 @@ const NicknameModal = () => {
       case 'FRIENDS_COMMUNITY':
         return (
           <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
-            <div className="flex flex-col lg:flex-row gap-8 h-full">
-              
-              {/* 1. 왼쪽: Friends 리스트 섹션 */}
+            <div className="flex flex-col lg:flex-row gap-8 h-full max-w-7xl mx-auto">
               <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
                 <div className="flex justify-between items-center mb-10">
                   <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
-                  <button 
-                    onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")}
-                    className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm"
-                  >
-                    친구 등록하기
-                  </button>
+                  <button onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")} className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm">등록하기</button>
                 </div>
                 <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Friends 카드는 나중에 DB 연동 후 map으로 출력 */}
-                    <p className="text-slate-500 text-sm italic">등록된 친구가 없습니다.</p>
-                  </div>
+                  <p className="text-slate-500 italic">등록된 친구가 없습니다.</p>
                 </div>
               </div>
-
-              {/* 2. 오른쪽: Discord 승인제 섹션 */}
               <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-                <div className="flex flex-col items-center mb-10 text-center">
-                  <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter mb-4">Discord</h2>
-                  
-                  {/* 일반 유저에게만 보이는 등록 신청 버튼 */}
-                  {role !== 'admin' && (
-                    <button 
-                      onClick={() => user ? setIsDiscordModalOpen(true) : alert("로그인이 필요합니다.")}
-                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20"
-                    >
-                      디스코드 홍보 신청하기
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-                  {/* 관리자일 때: 승인 대기 중인 신청 목록을 먼저 보여줌 */}
-                  {role === 'admin' && (
-                    <div className="mb-6 p-4 border border-pink-500/30 rounded-3xl bg-pink-500/5">
-                      <p className="text-[10px] font-black text-pink-500 uppercase mb-3 tracking-widest">승인 대기 목록 (Admin Only)</p>
-                      {/* 신청 건 예시 */}
-                      <div className="bg-black/40 border border-slate-800 rounded-2xl p-4 flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-white">서버 신청건</span>
-                        <div className="flex gap-2">
-                          <button className="px-3 py-1 bg-green-600 text-white text-[10px] font-black rounded-lg hover:bg-green-500">승인</button>
-                          <button className="px-3 py-1 bg-red-600 text-white text-[10px] font-black rounded-lg hover:bg-red-500">거절</button>
+                <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
+                <button onClick={() => user ? setIsDiscordModalOpen(true) : alert("로그인이 필요합니다.")} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase mb-6 shadow-lg">디스코드 신청</button>
+                
+                <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+                  {isAdmin && pendingDiscords.length > 0 && (
+                    <div className="mb-10 p-6 border border-pink-500/30 rounded-3xl bg-pink-500/5">
+                      <h3 className="text-xs font-black text-pink-500 uppercase mb-4 tracking-widest">Pending (Admin)</h3>
+                      {pendingDiscords.map((req) => (
+                        <div key={req.id} className="bg-black/40 border border-slate-800 rounded-2xl p-4 mb-3">
+                          <p className="text-sm font-bold text-white mb-1">{req.name}</p>
+                          <div className="flex gap-2">
+                            <button onClick={() => approveDiscord(req)} className="flex-1 py-2 bg-green-600 text-white text-[10px] font-black rounded-lg">APPROVE</button>
+                            <button onClick={() => rejectDiscord(req.id)} className="px-3 py-2 bg-red-600 text-white text-[10px] font-black rounded-lg">REJECT</button>
+                          </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
                   )}
 
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest text-center">커뮤니티 목록</p>
-                  {/* 공통: 승인 완료된 디스코드 목록 */}
-                  <div className="bg-black/40 border border-slate-800 rounded-3xl p-5 flex items-center justify-between group hover:border-indigo-500/30 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-lg">💬</div>
-                      <span className="font-bold text-white text-sm">Official Server</span>
-                    </div>
-                    <button className="px-5 py-2 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button>
-                  </div>
+                  <h3 className="text-xs font-black text-slate-500 uppercase mb-4 tracking-widest text-center">Approved Communities</h3>
+                  {approvedDiscords.length > 0 ? (
+                    approvedDiscords.map((srv) => (
+                      <div key={srv.id} className="bg-black/40 border border-slate-800 rounded-3xl p-6 group hover:border-indigo-500/30 transition-all">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-white font-black italic">{srv.name}</h4>
+                          <button onClick={() => window.open(srv.link, '_blank')} className="px-4 py-1.5 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button>
+                        </div>
+                        <p className="text-slate-500 text-[10px] line-clamp-2">{srv.desc}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-slate-500 text-center text-[10px] italic">승인된 서버가 없습니다.</p>
+                  )}
                 </div>
               </div>
-
             </div>
           </div>
         );
-        // --- 디스코드 등록 신청 모달 ---
-        
-// 친구 모달 설명서
+      default:
+        return null;
+    }
+  };
+
   const FriendModal = () => {
+    if (!isFriendModalOpen) return null;
     return (
-      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl text-center">
-          <h3 className="text-2xl font-black text-white mb-4">👫 친구 커뮤니티</h3>
-          <p className="text-slate-400 mb-6">친구 기능은 현재 준비 중이에요!<br/>조금만 기다려 주세요.</p>
-          <button 
-            onClick={() => { /* 나중에 기능을 넣을 거예요 */ }}
-            className="w-full bg-slate-700 text-white py-3 rounded-xl"
-          >
-            닫기
-          </button>
+      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 max-w-md w-full text-center">
+          <h3 className="text-2xl font-black text-white mb-4 italic uppercase">Friends Community</h3>
+          <p className="text-slate-400 mb-8 leading-relaxed">친구 기능은 현재 준비 중이에요!<br/>곧 다른 유저들과 소통할 수 있는 기능이 추가됩니다.</p>
+          <button onClick={() => setIsFriendModalOpen(false)} className="w-full py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-[#EC4899] hover:text-white transition-all">확인</button>
         </div>
       </div>
     );
   };
 
-  // 디스코드 모달 설명서
   const DiscordModal = () => {
     if (!isDiscordModalOpen) return null;
     return (
-      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 max-w-md w-full">
-          <h3 className="text-2xl font-black text-white mb-6 italic uppercase">Discord 홍보 신청</h3>
+      <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md" onClick={() => setIsDiscordModalOpen(false)}>
+        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-8 max-w-md w-full" onClick={e=>e.stopPropagation()}>
+          <h3 className="text-2xl font-black text-white mb-8 italic uppercase tracking-tighter text-center">Discord 홍보 신청</h3>
           <div className="space-y-4">
-            <input 
-              className="w-full p-4 bg-slate-800 rounded-xl text-white text-sm outline-none focus:ring-2 ring-indigo-500" 
-              placeholder="서버 이름" 
-              onChange={(e) => setDiscordData({...discordData, name: e.target.value})}
-            />
-            <input 
-              className="w-full p-4 bg-slate-800 rounded-xl text-white text-sm outline-none focus:ring-2 ring-indigo-500" 
-              placeholder="디스코드 초대 링크" 
-              onChange={(e) => setDiscordData({...discordData, link: e.target.value})}
-            />
-            <textarea 
-              className="w-full p-4 bg-slate-800 rounded-xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500" 
-              placeholder="간단한 서버 소개"
-              onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}
-            ></textarea>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Server Name</label>
+              <input className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="서버 이름을 입력하세요" value={discordData.name} onChange={(e) => setDiscordData({...discordData, name: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Invite Link</label>
+              <input className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="https://discord.gg/..." value={discordData.link} onChange={(e) => setDiscordData({...discordData, link: e.target.value})} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Description</label>
+              <textarea className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500 border border-slate-700 resize-none" placeholder="간단한 서버 소개" value={discordData.desc} onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}></textarea>
+            </div>
           </div>
-          <div className="flex gap-3 mt-6">
-            <button onClick={() => setIsDiscordModalOpen(false)} className="flex-1 py-4 bg-slate-800 text-white rounded-xl font-bold">취소</button>
-            <button 
-              onClick={() => {
-                alert("신청되었습니다! 관리자 승인 후 등록됩니다.");
-                setIsDiscordModalOpen(false);
-              }}
-              className="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-black"
-            >
-              신청하기
-            </button>
+          <div className="flex gap-4 mt-8">
+            <button onClick={() => setIsDiscordModalOpen(false)} className="flex-1 py-4 bg-slate-800 text-slate-400 rounded-2xl font-bold">취소</button>
+            <button onClick={submitDiscordRequest} className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black shadow-lg">신청하기</button>
           </div>
         </div>
       </div>
     );
   };
 
-  // 실제 화면에 보여지는 부분
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-[#020617] overflow-hidden font-sans select-none text-slate-300">
       <Sidebar />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         {toast && (
-          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs">
+          <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[200] bg-white text-slate-900 px-6 py-3 rounded-full font-black shadow-2xl text-xs animate-in slide-in-from-top-4">
             {toast}
           </div>
         )}
         <header className="px-6 py-4 lg:px-12 lg:py-10 shrink-0 flex flex-col lg:flex-row items-center justify-between gap-6 border-b border-slate-900/50">
-          <h2 className="text-[10px] font-black italic text-slate-600 uppercase tracking-[0.4em] flex items-center gap-4">
-            <span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>
-            {activeView === 'STUDIO' ? `${step} DASHBOARD` : activeView === 'HOME' ? 'MAIN DASHBOARD' : `${activeView} DASHBOARD`}
-          </h2>
-          {activeView === 'STUDIO' && <Stepper />}
+           <h2 className="text-[10px] font-black italic text-slate-600 uppercase tracking-[0.4em] flex items-center gap-4"><span className="w-2 h-2 bg-pink-500 rounded-full animate-pulse"></span>{activeView === 'STUDIO' ? `${step} DASHBOARD` : activeView === 'HOME' ? 'MAIN DASHBOARD' : `${activeView} DASHBOARD`}</h2>
+           {activeView === 'STUDIO' && <Stepper />}
         </header>
-
         <div className="flex-1 overflow-hidden relative flex flex-col">
           {renderMainContent()}
         </div>
       </main>
+      
       <DiscordModal />
       <FriendModal />
       <NicknameModal />
