@@ -18,7 +18,7 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
       onClick={() => onSelect(item)}
       className={`group flex items-center gap-6 p-4 border rounded-[28px] transition-all cursor-pointer relative overflow-hidden 
         ${isNotice 
-          ? 'bg-pink-500/5 border-pink-500/50 border-2 shadow-[0_0_20px_rgba(236,72,153,0.1)]' 
+          ? 'bg-pink-500/10 border-pink-500/60 border-2 shadow-[0_0_30px_rgba(236,72,153,0.15)] ring-1 ring-pink-500/20' 
           : 'bg-slate-900/40 border-slate-800 hover:border-pink-500/30'} 
         ${isIsolated && isAdmin ? 'bg-red-500/5 border-red-500/20' : ''}`}
     >
@@ -49,8 +49,8 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
         <div className="flex items-center gap-2 mb-1">
           {isNotice && (
-            <span className="text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter bg-pink-500 text-white shadow-lg">
-              📌 공지
+            <span className="text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter bg-pink-500 text-white shadow-xl animate-pulse">
+              📢 필독 공지
             </span>
           )}
           <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border ${item.isEditorPick ? 'bg-pink-500/10 text-pink-500 border-pink-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
@@ -61,17 +61,17 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
           )}
         </div>
         
-        <h4 className={`text-lg font-black italic truncate leading-tight transition-colors ${isNotice ? 'text-pink-500' : 'text-white group-hover:text-pink-500'}`}>
+        <h4 className={`text-lg font-black italic truncate leading-tight transition-colors ${isNotice ? 'text-white' : 'text-white group-hover:text-pink-500'}`}>
           {item.title}
         </h4>
         
-        <p className="text-slate-500 text-sm line-clamp-1 mb-2 font-medium">
+        <p className={`text-sm line-clamp-1 mb-2 font-medium ${isNotice ? 'text-pink-100/70' : 'text-slate-500'}`}>
           {item.content}
         </p>
 
-        <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+        <div className={`flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest ${isNotice ? 'text-pink-200/60' : 'text-slate-500'}`}>
           <div className="flex items-center gap-1.5">
-            <span className={isNotice ? 'text-pink-400' : 'text-pink-500'}>{item.authorNickname}</span>
+            <span className={isNotice ? 'text-white font-black underline decoration-pink-300' : 'text-pink-500'}>{item.authorNickname}</span>
             {item.authorRole === 'admin' && <span className="text-[8px] bg-pink-500/20 text-pink-500 px-1 rounded uppercase">ADMIN</span>}
           </div>
           <span className="opacity-40">|</span>
@@ -89,7 +89,7 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
       {/* 태그 (데스크탑 전용) */}
       <div className="hidden lg:flex flex-wrap gap-2 max-w-[150px] justify-end">
         {item.tags?.slice(0, 2).map(tag => (
-          <span key={tag} className="text-[9px] font-black text-slate-600 hover:text-pink-500">#{tag}</span>
+          <span key={tag} className={`text-[9px] font-black ${isNotice ? 'text-pink-200' : 'text-slate-600 hover:text-pink-500'}`}>#{tag}</span>
         ))}
       </div>
     </div>

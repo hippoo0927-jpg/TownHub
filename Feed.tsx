@@ -52,7 +52,7 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
       return matchCategory && matchSearch;
     });
 
-    // 정렬 로직: 공지사항 우선 노출
+    // 정렬 로직: 공지사항(isNotice) 우선 노출 -> 그 외 최신순
     return result.sort((a, b) => {
       const aNotice = a.isNotice ? 1 : 0;
       const bNotice = b.isNotice ? 1 : 0;
@@ -64,12 +64,11 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
     });
   }, [items, activeTab, searchQuery, isAdmin]);
 
+  // 명예의 전당: 오직 likesCount 순으로만 (isEditorPick 조건 제거)
   const hallOfFameItems = useMemo(() => {
     return [...items]
-      .sort((a, b) => {
-        if (a.isEditorPick !== b.isEditorPick) return a.isEditorPick ? -1 : 1;
-        return (b.likesCount || 0) - (a.likesCount || 0);
-      })
+      .filter(item => (item.likesCount || 0) > 0) // 좋아요가 최소 1개는 있는 것들 중
+      .sort((a, b) => (b.likesCount || 0) - (a.likesCount || 0))
       .slice(0, 5);
   }, [items]);
 
@@ -152,6 +151,7 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
             </div>
           </div>
 
+          {/* 명예의 전당 - 순수 좋아요 순 */}
           {activeTab === "전체" && <HallOfFame items={hallOfFameItems} onSelect={handleViewDetail} />}
 
           <div className="space-y-4">
