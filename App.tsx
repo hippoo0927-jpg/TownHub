@@ -43,6 +43,17 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const provider = new GoogleAuthProvider();
 
+// 1. 친구들의 이름을 담아둘 바구니
+const [friendsList, setFriendsList] = useState([]); 
+
+// 2. 친구 등록창에 쓰는 글자를 담아둘 바구니
+const [friendSearchInput, setFriendSearchInput] = useState(""); 
+
+// 3. 신고하기 버튼을 눌렀을 때 실행될 기능 (가짜로라도 만들어둬야 해요)
+const reportUser = (id, nickname) => {
+  alert(nickname + "님을 신고했습니다.");
+};
+
 const adminEmails = ["hippoo0927@gmail.com"]; 
 
 const getContrastColor = (hex: string) => {
