@@ -68,11 +68,8 @@ const App: React.FC = () => {
   
   const adminEmails = ["hippoo0927@gmail.com"]; 
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
-  const [isDiscordModalOpen, setIsDiscordModalOpen] = useState(false);
   const [approvedDiscords, setApprovedDiscords] = useState<any[]>([]);
   const [pendingDiscords, setPendingDiscords] = useState<any[]>([]);
-  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
 
   // 3. 관리자 체크 및 데이터 실시간 로드
   useEffect(() => {
