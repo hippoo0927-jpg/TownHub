@@ -1050,16 +1050,14 @@ const NicknameModal = () => {
         <div className="flex-1 overflow-hidden relative flex flex-col">
           {renderMainContent()}
         </div>
-
-        {/* 모달 호출부 */}
-        <DiscordModal />
-        <FriendModal />
-        <NicknameModal />
-        <PolicyModal />
-        <UpdateLogsModal />
       </main>
+      <DiscordModal />
+      <FriendModal />
+      <NicknameModal />
+      <PolicyModal />
+      <UpdateLogsModal />
     </div>
   );
-}; // 👈 App 컴포넌트 닫기
+};
 
-export default App; // 👈 마지막 내보내기
+export default App;
