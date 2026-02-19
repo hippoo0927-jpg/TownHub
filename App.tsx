@@ -964,17 +964,19 @@ const reportUser = (id, nickname) => {
                   ) : (
                     <p className="text-slate-500 text-center text-[10px] italic">승인된 서버가 없습니다.</p>
                   )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+        </div> {/* 디스코드 내부 목록 끝 */}
+      </div> {/* 디스코드 오른쪽 상자 끝 */}
+    </div> {/* 가로 배열 끝 */}
+  </div> {/* 전체 패딩 끝 */}
+); // 👈 FRIENDS_COMMUNITY 케이스의 리턴 끝
 
-  const FriendModal = () => {
+default:
+  return null;
+} // 👈 switch 문 끝
+}; // 👈 renderMainContent 함수가 여기서 드디어 끝! (중요)
+
+// 여기서부터는 완전히 독립된 새로운 함수들입니다.
+const FriendModal = () => {
     if (!isFriendModalOpen) return null;
     return (
       <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
