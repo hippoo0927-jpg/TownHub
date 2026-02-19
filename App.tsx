@@ -57,13 +57,14 @@ interface FriendItem {
 }
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
-  authDomain: "town-hub0927.firebaseapp.com",
-  projectId: "town-hub0927",
-  storageBucket: "town-hub0927.firebasestorage.app",
-  messagingSenderId: "329581279235",
-  appId: "1:329581279235:web:1337185e104498ad483636",
-  measurementId: "G-D0DMJSHCLZ"
+  const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -142,7 +143,7 @@ const App: React.FC = () => {
   useEffect(() => {
     // ---------------------------------------------------------
     // [기존 로그인 체크 로직 - 주석 처리]
-    /*
+    *
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -164,25 +165,7 @@ const App: React.FC = () => {
     });
     return () => unsubscribe();
     */
-    // ---------------------------------------------------------
-
-    // ---------------------------------------------------------
-    // [테스트용 임시 관리자 유저 설정]
-    // 나중에 실제 로그인 기능을 사용하려면 위 주석을 풀고 아래 섹션을 지우세요.
-    const testUser = {
-      uid: "hippoo-admin-test-uid",
-      email: "hippoo0927@gmail.com",
-      displayName: "관리자(테스트)",
-      photoURL: "https://api.dicebear.com/7.x/pixel-art/svg?seed=Hippoo"
-    } as any;
-
-    setUser(testUser);
-    setIsAdmin(true); // adminEmails에 포함된 이메일을 사용하므로 true
-    setNickname("운영자_테스트");
-    setUserTitle("👑 총괄 운영자");
-    setIsNicknameModalOpen(false); // 닉네임 설정 모달 강제 닫기
-    // ---------------------------------------------------------
-  }, []);
+    
 
   useEffect(() => {
     const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), orderBy("createdAt", "desc")), (snap) => {
