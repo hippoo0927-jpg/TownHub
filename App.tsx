@@ -211,17 +211,6 @@ const App: React.FC = () => {
     } catch (e) { alert("거절 처리 실패"); }
   };
 
-  // 1. 친구들의 이름을 담아둘 바구니
-const [friendsList, setFriendsList] = useState([]); 
-
-// 2. 친구 등록창에 쓰는 글자를 담아둘 바구니
-const [friendSearchInput, setFriendSearchInput] = useState(""); 
-
-// 3. 신고하기 버튼을 눌렀을 때 실행될 기능 (가짜로라도 만들어둬야 해요)
-const reportUser = (id, nickname) => {
-  alert(nickname + "님을 신고했습니다.");
-};
-
   useEffect(() => {
     const fetchLogs = async () => {
       setIsLogsLoading(true);
@@ -587,16 +576,7 @@ const reportUser = (id, nickname) => {
         <div className="bg-slate-900 border border-slate-800 rounded-[48px] p-10 max-w-md w-full text-center">
           <h3 className="text-3xl font-black text-white mb-6 italic">WELCOME!</h3>
           <p className="text-slate-400 mb-8">사용하실 닉네임을 설정해주세요.</p>
-          <input 
-  key="nick" 
-  autoFocus 
-  type="text" 
-  value={tempNickname} 
-  onChange={(e) => setTempNickname(e.target.value)} 
-  className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500" 
-  placeholder="닉네임 입력 (최대 10자)" 
-  maxLength={10} 
-/>
+          <input type="text" value={tempNickname} onChange={(e) => setTempNickname(e.target.value)} className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500" placeholder="닉네임 입력 (최대 10자)" maxLength={10} />
           <button onClick={saveNickname} className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black hover:bg-pink-600 transition-all">시작하기</button>
         </div>
       </div>
@@ -893,43 +873,18 @@ const reportUser = (id, nickname) => {
           </div>
         );
       case 'FRIENDS_COMMUNITY':
-  return (
-    <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
-      <div className="flex flex-col lg:flex-row gap-8 h-full max-w-7xl mx-auto">
-        {/* 왼쪽: 친구 목록 상자 */}
-        <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
-            <button onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")} className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm">등록하기</button>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
-            {/* friendsList가 있을 때만 보여주는 안전장치 */}
-            {friendsList && friendsList.length > 0 ? (
-              friendsList.map((friend) => (
-                <div key={friend.id} className="bg-black/40 border border-slate-800 rounded-3xl p-6 flex items-center justify-between">
-                  <h4 className="text-white font-black">{friend.nickname}</h4>
-                  <button 
-                    onClick={() => reportUser(friend.id, friend.nickname)}
-                    className="text-red-500 text-[10px] border border-red-500/20 px-3 py-1 rounded-lg"
-                  >
-                    신고하기
-                  </button>
+        return (
+          <div className="flex-1 p-6 lg:p-12 overflow-hidden h-full">
+            <div className="flex flex-col lg:flex-row gap-8 h-full max-w-7xl mx-auto">
+              <div className="flex-[2] bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
+                <div className="flex justify-between items-center mb-10">
+                  <h2 className="text-3xl lg:text-4xl font-black italic text-white uppercase tracking-tighter">Friends</h2>
+                  <button onClick={() => user ? setIsFriendModalOpen(true) : alert("로그인이 필요합니다.")} className="px-8 py-3 bg-[#EC4899] text-white rounded-2xl font-black hover:scale-105 transition-all shadow-lg text-sm">등록하기</button>
                 </div>
-              ))
-            ) : (
-              <p className="text-slate-500 italic">등록된 친구가 없습니다.</p>
-            )}
-          </div>
-        </div>
-
-        {/* 오른쪽: 디스코드 상자 */}
-        <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
-          <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
-          <button onClick={() => user ? setIsDiscordModalOpen(true) : alert("로그인이 필요합니다.")} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase mb-6 shadow-lg">디스코드 신청</button>
-          
-          <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
-            {/* 여기 아래는 기존 디스코드 코드(pendingDiscords 등)를 그대로 두시면 됩니다 */}
+                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                  <p className="text-slate-500 italic">등록된 친구가 없습니다.</p>
+                </div>
+              </div>
               <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden">
                 <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
                 <button onClick={() => user ? setIsDiscordModalOpen(true) : alert("로그인이 필요합니다.")} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase mb-6 shadow-lg">디스코드 신청</button>
@@ -964,19 +919,17 @@ const reportUser = (id, nickname) => {
                   ) : (
                     <p className="text-slate-500 text-center text-[10px] italic">승인된 서버가 없습니다.</p>
                   )}
-        </div> {/* 디스코드 내부 목록 끝 */}
-      </div> {/* 디스코드 오른쪽 상자 끝 */}
-    </div> {/* 가로 배열 끝 */}
-  </div> {/* 전체 패딩 끝 */}
-); // 👈 FRIENDS_COMMUNITY 케이스의 리턴 끝
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
-default:
-  return null;
-} // 👈 switch 문 끝
-}; // 👈 renderMainContent 함수가 여기서 드디어 끝! (중요)
-
-// 여기서부터는 완전히 독립된 새로운 함수들입니다.
-const FriendModal = () => {
+  const FriendModal = () => {
     if (!isFriendModalOpen) return null;
     return (
       <div className="fixed inset-0 z-[4000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
@@ -998,16 +951,15 @@ const FriendModal = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Server Name</label>
-              <input key="ds-name" 
-  autoFocus className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="서버 이름을 입력하세요" value={discordData.name} onChange={(e) => setDiscordData({...discordData, name: e.target.value})} />
+              <input className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="서버 이름을 입력하세요" value={discordData.name} onChange={(e) => setDiscordData({...discordData, name: e.target.value})} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Invite Link</label>
-              <input key="ds-link" className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="https://discord.gg/..." value={discordData.link} onChange={(e) => setDiscordData({...discordData, link: e.target.value})} />
+              <input className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="https://discord.gg/..." value={discordData.link} onChange={(e) => setDiscordData({...discordData, link: e.target.value})} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Description</label>
-              <textarea key="ds-desc" className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500 border border-slate-700 resize-none" placeholder="간단한 서버 소개" value={discordData.desc} onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}></textarea>
+              <textarea className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500 border border-slate-700 resize-none" placeholder="간단한 서버 소개" value={discordData.desc} onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}></textarea>
             </div>
           </div>
           <div className="flex gap-4 mt-8">
