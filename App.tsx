@@ -1,8 +1,7 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment, where, getDocs } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { AppStep, PixelData, StudioMode, TextLayer } from './types';
 import { processArtStudioPixel } from './services/pixelService';
@@ -48,19 +47,20 @@ interface FriendItem {
   imageURL: string;
   category: string;
   uid: string;
+  role: string;
   likes: string[];
   likesCount: number;
   createdAt?: any;
 }
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -172,6 +172,7 @@ const App: React.FC = () => {
         id: doc.id, 
         likes: doc.data().likes || [],
         likesCount: doc.data().likesCount || 0,
+        role: doc.data().role || 'user',
         ...doc.data() 
       } as FriendItem)));
     });
@@ -235,7 +236,36 @@ const App: React.FC = () => {
       }
     }
 
+    // UI 피드백: 기존 프로필 교체 안내
+    if (!window.confirm("기존에 등록된 프로필은 삭제되고 새로운 프로필로 교체됩니다. 계속하시겠습니까?")) return;
+
     try {
+      // 1인 1카드 유지 로직: 동일 gameId 또는 동일 uid의 기존 문서 삭제
+      const qGameId = query(collection(db, "friends"), where("gameId", "==", friendFormData.gameId));
+      const qUid = query(collection(db, "friends"), where("uid", "==", user.uid));
+      
+      const [snapGameId, snapUid] = await Promise.all([
+        getDocs(qGameId),
+        getDocs(qUid)
+      ]);
+
+      const deletePromises: any[] = [];
+      snapGameId.forEach(d => deletePromises.push(deleteDoc(doc(db, "friends", d.id))));
+      snapUid.forEach(d => {
+        // gameId 쿼리와 중복될 수 있으므로 체크
+        if (!snapGameId.docs.find(gd => gd.id === d.id)) {
+          deletePromises.push(deleteDoc(doc(db, "friends", d.id)));
+        }
+      });
+      
+      if (deletePromises.length > 0) {
+        await Promise.all(deletePromises);
+      }
+
+      // 관리자 식별: gameId가 "hippoo0927@gmail.com"이거나 이미 관리자 이메일인 경우
+      const assignedRole = (friendFormData.gameId === "hippoo0927@gmail.com" || isAdmin) ? "admin" : "user";
+
+      // 새 프로필 등록 (기존 이미지 URL은 Cloudinary에서 수동 관리 혹은 추후 자동화 로직으로 처리됨을 명시)
       await addDoc(collection(db, "friends"), {
         nickname: nickname,
         title: userTitle,
@@ -244,10 +274,12 @@ const App: React.FC = () => {
         imageURL: friendFormData.imageURL || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop",
         category: friendFormData.category,
         uid: user.uid,
+        role: assignedRole,
         likes: [],
         likesCount: 0,
         createdAt: serverTimestamp()
       });
+
       // 쿨타임 갱신
       const nowTs = new Date();
       await setDoc(doc(db, "users", user.uid), { lastFriendReg: serverTimestamp() }, { merge: true });
@@ -255,8 +287,9 @@ const App: React.FC = () => {
       
       setIsFriendModalOpen(false);
       setFriendFormData({ gameId: '', description: '', imageURL: '', category: '전체' });
-      showToast("친구 구인 게시글이 등록되었습니다!");
+      showToast("새로운 프로필 카드가 성공적으로 등록되었습니다!");
     } catch (e) {
+      console.error(e);
       alert("등록 중 오류가 발생했습니다.");
     }
   };

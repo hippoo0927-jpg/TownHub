@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 
 interface DiscordItem {
@@ -17,6 +16,7 @@ interface FriendItem {
   imageURL: string;
   category: string;
   uid: string;
+  role: string;
   likes: string[];
   likesCount: number;
   createdAt?: any;
@@ -162,9 +162,13 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
                       <div className="flex-1 flex flex-col min-w-0">
                          <div className="flex justify-between items-start mb-4 gap-2">
                             <div className="flex flex-col min-w-0">
-                               <div className="flex items-center gap-2">
+                               <div className="flex items-center gap-1 flex-wrap">
                                   <h4 className="text-white font-black text-lg truncate italic">{friend.nickname}</h4>
-                                  {friend.uid === "hippoo0927" || friend.nickname === "히푸" ? <span className="text-[8px] bg-red-600 text-white font-black px-1.5 py-0.5 rounded uppercase">ADMIN</span> : null}
+                                  {friend.role === "admin" ? (
+                                    <span className="text-[11px] text-[#EC4899] font-black uppercase tracking-tight drop-shadow-[0_0_8px_rgba(236,72,153,0.3)]"> [👑 관리자]</span>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter opacity-60"> [일반 시민]</span>
+                                  )}
                                </div>
                                <span className="text-[10px] font-bold text-pink-500 uppercase tracking-widest leading-none">({friend.title})</span>
                             </div>
