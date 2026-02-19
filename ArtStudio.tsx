@@ -59,72 +59,110 @@ const ArtStudio: React.FC<ArtStudioProps> = (props) => {
   const [localIsExporting, setLocalIsExporting] = useState(false);
   const selectedText = textLayers.find(l => l.id === selectedTextId);
 
-  // 도안 이미지 생성 및 다운로드 (ID 텍스트 포함)
+  // 도안 이미지 분할 생성 및 다운로드 (ID 텍스트 포함)
   const downloadImage = async () => {
     if (!pixelData) return;
     setLocalIsExporting(true);
     
     try {
       const zip = new JSZip();
-      const scale = 40; // 고해상도 픽셀 크기
+      const scale = 40; // 조각 이미지 픽셀 크기 (Upscaling)
       
-      // 1. 전체 도안 이미지 생성
-      const mainCanvas = document.createElement('canvas');
-      mainCanvas.width = pixelData.width * scale;
-      mainCanvas.height = pixelData.height * scale;
-      const ctx = mainCanvas.getContext('2d');
-      if (!ctx) return;
+      const numCols = Math.ceil(pixelData.width / splitSize);
+      const numRows = Math.ceil(pixelData.height / splitSize);
 
-      pixelData.colors.forEach((color, idx) => {
-        const x = (idx % pixelData.width) * scale;
-        const y = Math.floor(idx / pixelData.width) * scale;
-        const pId = paletteIndexMap.get(color);
-        
-        ctx.fillStyle = color;
-        ctx.fillRect(x, y, scale, scale);
-        
-        // 격자선
-        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x, y, scale, scale);
+      // 1. 조각 이미지 생성 (Slicing)
+      for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < numCols; c++) {
+          const startX = c * splitSize;
+          const startY = r * splitSize;
+          const currentChunkW = Math.min(splitSize, pixelData.width - startX);
+          const currentChunkH = Math.min(splitSize, pixelData.height - startY);
 
-        // 5x5 강조선
-        const colIdx = idx % pixelData.width;
-        const rowIdx = Math.floor(idx / pixelData.width);
-        if ((colIdx + 1) % 5 === 0) {
-          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-          ctx.beginPath(); ctx.moveTo(x + scale, y); ctx.lineTo(x + scale, y + scale); ctx.stroke();
+          const chunkCanvas = document.createElement('canvas');
+          chunkCanvas.width = currentChunkW * scale;
+          chunkCanvas.height = currentChunkH * scale;
+          const ctx = chunkCanvas.getContext('2d');
+          if (!ctx) continue;
+
+          for (let y = 0; y < currentChunkH; y++) {
+            for (let x = 0; x < currentChunkW; x++) {
+              const globalX = startX + x;
+              const globalY = startY + y;
+              const globalIdx = globalY * pixelData.width + globalX;
+              const color = pixelData.colors[globalIdx];
+              const pId = paletteIndexMap.get(color);
+
+              const drawX = x * scale;
+              const drawY = y * scale;
+
+              // 배경색 채우기
+              ctx.fillStyle = color;
+              ctx.fillRect(drawX, drawY, scale, scale);
+
+              // 격자선 (기본)
+              ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(drawX, drawY, scale, scale);
+
+              // 5x5 강조선 (전체 도안 좌표 기준)
+              if ((globalX + 1) % 5 === 0) {
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath(); ctx.moveTo(drawX + scale, drawY); ctx.lineTo(drawX + scale, drawY + scale); ctx.stroke();
+              }
+              if ((globalY + 1) % 5 === 0) {
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.beginPath(); ctx.moveTo(drawX, drawY + scale); ctx.lineTo(drawX + scale, drawY + scale); ctx.stroke();
+              }
+
+              // ID 텍스트 삽입
+              if (pId) {
+                ctx.fillStyle = getContrastColor(color);
+                ctx.font = `bold ${scale * 0.35}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(pId, drawX + scale / 2, drawY + scale / 2);
+              }
+            }
+          }
+
+          const blob = await new Promise<Blob | null>(res => chunkCanvas.toBlob(res, 'image/png'));
+          if (blob) zip.file(`guide_row${r + 1}_col${c + 1}.png`, blob);
         }
-        if ((rowIdx + 1) % 5 === 0) {
-          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-          ctx.beginPath(); ctx.moveTo(x, y + scale); ctx.lineTo(x + scale, y + scale); ctx.stroke();
-        }
+      }
 
-        // ID 텍스트 삽입 (중심)
-        if (pId) {
-          ctx.fillStyle = getContrastColor(color);
-          ctx.font = `bold ${scale * 0.35}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(pId, x + scale / 2, y + scale / 2);
-        }
-      });
+      // 2. 전체 도안 이미지 생성 (Full View)
+      const fullCanvas = document.createElement('canvas');
+      const fullScale = 10; // 전체보기는 약간 작게
+      fullCanvas.width = pixelData.width * fullScale;
+      fullCanvas.height = pixelData.height * fullScale;
+      const fCtx = fullCanvas.getContext('2d');
+      if (fCtx) {
+        pixelData.colors.forEach((color, idx) => {
+          const x = (idx % pixelData.width) * fullScale;
+          const y = Math.floor(idx / pixelData.width) * fullScale;
+          fCtx.fillStyle = color;
+          fCtx.fillRect(x, y, fullScale, fullScale);
+        });
+        const fullBlob = await new Promise<Blob | null>(res => fullCanvas.toBlob(res, 'image/png'));
+        if (fullBlob) zip.file("full_view.png", fullBlob);
+      }
 
-      const mainBlob = await new Promise<Blob | null>(res => mainCanvas.toBlob(res, 'image/png'));
-      if (mainBlob) zip.file("full_pattern_guide.png", mainBlob);
-
-      // 2. 가이드 텍스트 파일 추가
+      // 3. 가이드 텍스트 파일 추가
       let guideText = "TOWN HUB PIXEL ART GUIDE\n\n";
+      guideText += `Total Dimension: ${pixelData.width}x${pixelData.height}\n`;
+      guideText += `Split Size: ${splitSize}x${splitSize}\n\n`;
+      guideText += "COLOR PALETTE LIST:\n";
       pixelData.palette.forEach((p, i) => {
         guideText += `[${i + 1}] ID: ${p.index} | HEX: ${p.hex} | COUNT: ${p.count}px\n`;
       });
-      zip.file("palette_info.txt", guideText);
+      zip.file("palette_list.txt", guideText);
 
-      // 3. ZIP 다운로드
+      // 4. ZIP 다운로드
       const content = await zip.generateAsync({ type: "blob" });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(content);
-      link.download = `town_studio_export_${Date.now()}.zip`;
+      link.download = `town_studio_guide_${Date.now()}.zip`;
       link.click();
       
       setShowExportMenu(false);
@@ -234,7 +272,15 @@ const ArtStudio: React.FC<ArtStudioProps> = (props) => {
                       <button onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }} className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black shadow-2xl text-[11px]">Export {showExportMenu ? '▲' : '▼'}</button>
                       {showExportMenu && (
                         <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right">
-                          <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
+                          <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label>
+                          <input 
+                            key="export-grid-size-input"
+                            autoFocus
+                            type="number" 
+                            value={splitSize} 
+                            onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} 
+                            className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" 
+                          /></div>
                           <button disabled={localIsExporting} onClick={downloadImage} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all">
                             <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">
                               {localIsExporting ? '⏳' : '📦'}
