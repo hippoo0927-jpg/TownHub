@@ -38,14 +38,26 @@ interface DiscordItem {
   createdAt?: any;
 }
 
+interface FriendItem {
+  id: string;
+  nickname: string;
+  title: string;
+  gameId: string;
+  description: string;
+  imageURL: string;
+  category: string;
+  uid: string;
+  createdAt?: any;
+}
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -58,6 +70,7 @@ const App: React.FC = () => {
   // Global States
   const [user, setUser] = useState<User | null>(null);
   const [nickname, setNickname] = useState<string>('');
+  const [userTitle, setUserTitle] = useState<string>('뉴비');
   const [isAdmin, setIsAdmin] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<MainView>('HOME');
@@ -78,8 +91,13 @@ const App: React.FC = () => {
   const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
 
   // Friends States
-  const [friendsList, setFriendsList] = useState<{id: string, nickname: string}[]>([]);
-  const [friendSearchInput, setFriendSearchInput] = useState('');
+  const [friendsList, setFriendsList] = useState<FriendItem[]>([]);
+  const [friendFormData, setFriendFormData] = useState({
+    gameId: '',
+    description: '',
+    imageURL: '',
+    category: '전체'
+  });
 
   // Studio States
   const [step, setStep] = useState<AppStep>('MODE_SELECT');
@@ -118,7 +136,9 @@ const App: React.FC = () => {
         setIsAdmin(adminEmails.includes(currentUser.email || ""));
         const userDoc = await getDoc(doc(db, "users", currentUser.uid));
         if (userDoc.exists()) {
-          setNickname(userDoc.data().nickname);
+          const data = userDoc.data();
+          setNickname(data.nickname);
+          setUserTitle(data.title || '일반 시민');
         } else {
           setIsNicknameModalOpen(true);
         }
@@ -140,7 +160,12 @@ const App: React.FC = () => {
         setPendingDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DiscordItem)));
       });
     }
-    return () => { unsubApproved(); unsubPending(); };
+    // 친구 목록 실시간 로드
+    const unsubFriends = onSnapshot(query(collection(db, "friends"), orderBy("createdAt", "desc")), (snap) => {
+      setFriendsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendItem)));
+    });
+
+    return () => { unsubApproved(); unsubPending(); unsubFriends(); };
   }, [isAdmin]);
 
   useEffect(() => {
@@ -170,11 +195,58 @@ const App: React.FC = () => {
   const saveNickname = async () => {
     if (!user || !tempNickname.trim()) return;
     try {
-      await setDoc(doc(db, "users", user.uid), { nickname: tempNickname, role: adminEmails.includes(user.email || "") ? 'admin' : 'user', createdAt: serverTimestamp() });
-      setNickname(tempNickname); setIsNicknameModalOpen(false); showToast("닉네임이 설정되었습니다!");
+      await setDoc(doc(db, "users", user.uid), { 
+        nickname: tempNickname, 
+        title: '뉴비',
+        role: adminEmails.includes(user.email || "") ? 'admin' : 'user', 
+        createdAt: serverTimestamp() 
+      });
+      setNickname(tempNickname);
+      setUserTitle('뉴비');
+      setIsNicknameModalOpen(false); 
+      showToast("닉네임이 설정되었습니다!");
     } catch (e) { showToast("저장에 실패했습니다."); }
   };
 
+  // Friends Handlers
+  const handleAddFriend = async () => {
+    if (!user) return alert("로그인이 필요합니다.");
+    if (!friendFormData.gameId || !friendFormData.description) return alert("내용을 모두 입력해주세요.");
+    
+    try {
+      await addDoc(collection(db, "friends"), {
+        nickname: nickname,
+        title: userTitle,
+        gameId: friendFormData.gameId,
+        description: friendFormData.description,
+        imageURL: friendFormData.imageURL || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop", // 기본 이미지
+        category: friendFormData.category,
+        uid: user.uid,
+        createdAt: serverTimestamp()
+      });
+      setIsFriendModalOpen(false);
+      setFriendFormData({ gameId: '', description: '', imageURL: '', category: '전체' });
+      showToast("친구 구인 게시글이 등록되었습니다!");
+    } catch (e) {
+      alert("등록 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleDeleteFriend = async (id: string) => {
+    if (!isAdmin) return;
+    if (window.confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
+      try {
+        await deleteDoc(doc(db, "friends", id));
+        showToast("게시글이 삭제되었습니다.");
+      } catch (e) { alert("삭제 실패"); }
+    }
+  };
+
+  const handleReportUser = (targetNickname: string) => {
+    alert(`${targetNickname}님에 대한 신고가 접수되었습니다. 관리자 검토 후 조치하겠습니다.`);
+  };
+
+  // Discord Handlers
   const submitDiscordRequest = async () => {
     if (!discordData.name || !discordData.link) return alert("필수 항목을 입력해주세요.");
     if (!user) return alert("로그인이 필요합니다.");
@@ -195,23 +267,6 @@ const App: React.FC = () => {
 
   const rejectDiscord = async (id: string) => {
     try { await deleteDoc(doc(db, "discord_requests", id)); showToast("신청이 거절되었습니다."); } catch (e) { alert("거절 처리 실패"); }
-  };
-
-  // Friends Handlers
-  const handleAddFriend = () => {
-    if (!friendSearchInput.trim()) return alert("친구 닉네임을 입력해주세요.");
-    const newFriend = {
-      id: `friend-${Date.now()}`,
-      nickname: friendSearchInput.trim()
-    };
-    setFriendsList(prev => [newFriend, ...prev]);
-    setFriendSearchInput('');
-    setIsFriendModalOpen(false);
-    showToast(`${newFriend.nickname}님이 친구 목록에 추가되었습니다!`);
-  };
-
-  const handleReportUser = (targetNickname: string) => {
-    alert(`${targetNickname}님에 대한 신고가 접수되었습니다. 관리자 검증 후 적절한 조치를 취하겠습니다.`);
   };
 
   // Studio Handlers
@@ -338,6 +393,7 @@ const App: React.FC = () => {
               onApproveDiscord={approveDiscord} 
               onRejectDiscord={rejectDiscord}
               onReportUser={handleReportUser}
+              onDeleteFriend={handleDeleteFriend}
             />
           )}
         </div>
@@ -346,8 +402,8 @@ const App: React.FC = () => {
       <FriendModal 
         isOpen={isFriendModalOpen} 
         onClose={() => setIsFriendModalOpen(false)} 
-        inputValue={friendSearchInput}
-        onInputChange={setFriendSearchInput}
+        formData={friendFormData}
+        setFormData={setFriendFormData}
         onAddFriend={handleAddFriend}
       />
       <NicknameModal isOpen={isNicknameModalOpen} value={tempNickname} onChange={setTempNickname} onSave={saveNickname} />
