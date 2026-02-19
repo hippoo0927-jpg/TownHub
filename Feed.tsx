@@ -33,7 +33,8 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
         id: doc.id, 
         likes: doc.data().likes || [],
         reports: doc.data().reports || [],
-        mediaUrls: doc.data().mediaUrls || [], // 기존 필드 mediaUrl 하위 호환 고려 필요 시 추가 가능
+        mediaUrls: doc.data().mediaUrls || [],
+        isNotice: doc.data().isNotice || false,
         ...doc.data() 
       } as FeedItem)));
       setIsLoading(false);
@@ -42,15 +43,24 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
   }, [db]);
 
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      // 3회 이상 신고 게시물 숨김 (관리자 제외)
+    let result = items.filter(item => {
       if (!isAdmin && (item.reportsCount || 0) >= 3) return false;
-      
       const matchCategory = activeTab === "전체" || item.category === activeTab;
       const matchSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.authorNickname.toLowerCase().includes(searchQuery.toLowerCase());
       return matchCategory && matchSearch;
+    });
+
+    // 정렬 로직: 공지사항 우선 노출
+    return result.sort((a, b) => {
+      const aNotice = a.isNotice ? 1 : 0;
+      const bNotice = b.isNotice ? 1 : 0;
+      if (aNotice !== bNotice) return bNotice - aNotice;
+      
+      const aTime = a.createdAt?.toMillis?.() || 0;
+      const bTime = b.createdAt?.toMillis?.() || 0;
+      return bTime - aTime;
     });
   }, [items, activeTab, searchQuery, isAdmin]);
 
@@ -110,7 +120,6 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
 
   const handleViewDetail = async (item: FeedItem) => {
     setSelectedItem(item);
-    // 조회수 증가
     await updateDoc(doc(db, "Feeds", item.id), { views: increment(1) });
   };
 
@@ -119,7 +128,6 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
       <div className="flex-1 overflow-y-auto custom-scrollbar no-scrollbar pb-32">
         <div className="max-w-6xl mx-auto w-full">
           
-          {/* 상단 검색 및 필터 */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-14 mt-6">
             <div className="flex gap-2 overflow-x-auto no-scrollbar w-full md:w-auto">
                {CATEGORIES.map(cat => (
@@ -144,10 +152,8 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
             </div>
           </div>
 
-          {/* 명예의 전당 */}
           {activeTab === "전체" && <HallOfFame items={hallOfFameItems} onSelect={handleViewDetail} />}
 
-          {/* 게시글 리스트 */}
           <div className="space-y-4">
              <div className="flex items-center justify-between px-2 mb-6">
                 <h3 className="text-xl font-black italic text-white uppercase tracking-tighter">Recent Feeds</h3>
@@ -171,7 +177,6 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
         </div>
       </div>
 
-      {/* FAB (글쓰기 버튼) */}
       <button 
         onClick={() => user ? setIsWriteModalOpen(true) : alert("로그인이 필요합니다.")}
         className="fixed bottom-10 right-10 lg:bottom-16 lg:right-16 w-20 h-20 bg-[#EC4899] text-white rounded-[32px] flex items-center justify-center text-3xl shadow-[0_0_40px_rgba(236,72,153,0.4)] hover:scale-110 active:scale-95 transition-all z-[100] group"
@@ -179,11 +184,11 @@ const Feed: React.FC<FeedProps> = ({ user, isAdmin, nickname, userTitle, db, onO
         <span className="group-hover:rotate-12 transition-transform">✍️</span>
       </button>
 
-      {/* 모달들 */}
       <FeedModal 
         isOpen={isWriteModalOpen} 
         onClose={() => setIsWriteModalOpen(false)} 
         isAdmin={isAdmin}
+        userEmail={user?.email}
         onSubmit={handleCreatePost} 
       />
 

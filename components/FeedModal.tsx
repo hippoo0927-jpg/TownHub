@@ -4,12 +4,14 @@ interface FeedModalProps {
   isOpen: boolean;
   onClose: () => void;
   isAdmin: boolean;
-  onSubmit: (data: { title: string; content: string; mediaUrls: string[]; mediaType: string; category: string; tags: string[]; isEditorPick: boolean }) => void;
+  userEmail?: string | null;
+  onSubmit: (data: { title: string; content: string; mediaUrls: string[]; mediaType: string; category: string; tags: string[]; isEditorPick: boolean; isNotice: boolean }) => void;
 }
 
 const CATEGORIES = ["🎨 갤러리", "📚 꿀팁/강좌", "🤝 파티모집"];
+const MASTER_EMAIL = "hippoo0927@gmail.com";
 
-const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, onSubmit }) => {
+const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, userEmail, onSubmit }) => {
   const [formData, setFormData] = useState({
     title: "",
     content: "",
@@ -17,7 +19,8 @@ const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, onSubmi
     mediaType: "none",
     category: CATEGORIES[0],
     tagsString: "",
-    isEditorPick: false
+    isEditorPick: false,
+    isNotice: false
   });
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,7 +61,6 @@ const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, onSubmi
         mediaUrls: uploadedUrls, 
         mediaType: primaryType 
       });
-      alert(`${files.length}개의 파일 업로드 시도 완료!`);
     } catch (e) {
       alert("업로드 중 오류가 발생했습니다.");
     } finally {
@@ -85,8 +87,10 @@ const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, onSubmi
       tags,
       mediaType: formData.mediaType as any
     });
-    setFormData({ title: "", content: "", mediaUrls: [], mediaType: "none", category: CATEGORIES[0], tagsString: "", isEditorPick: false });
+    setFormData({ title: "", content: "", mediaUrls: [], mediaType: "none", category: CATEGORIES[0], tagsString: "", isEditorPick: false, isNotice: false });
   };
+
+  const isMaster = userEmail === MASTER_EMAIL;
 
   return (
     <div className="fixed inset-0 z-[5000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl overflow-y-auto">
@@ -114,7 +118,6 @@ const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, onSubmi
              </div>
           </div>
 
-          {/* 업로드된 미디어 미리보기 */}
           {formData.mediaUrls.length > 0 && (
             <div className="flex gap-2 overflow-x-auto p-2 bg-slate-800/50 rounded-2xl custom-scrollbar">
               {formData.mediaUrls.map((url, idx) => (
@@ -162,17 +165,30 @@ const FeedModal: React.FC<FeedModalProps> = ({ isOpen, onClose, isAdmin, onSubmi
             />
           </div>
 
-          {isAdmin && (
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <input 
-                type="checkbox" 
-                checked={formData.isEditorPick} 
-                onChange={e => setFormData({...formData, isEditorPick: e.target.checked})}
-                className="w-5 h-5 accent-pink-500 bg-slate-800 border-slate-700" 
-              />
-              <span className="text-xs font-black text-slate-400 group-hover:text-pink-500 uppercase italic">Register as Notice (Editor Pick)</span>
-            </label>
-          )}
+          <div className="flex flex-col gap-3">
+            {isAdmin && (
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  checked={formData.isEditorPick} 
+                  onChange={e => setFormData({...formData, isEditorPick: e.target.checked})}
+                  className="w-5 h-5 accent-pink-500 bg-slate-800 border-slate-700" 
+                />
+                <span className="text-xs font-black text-slate-400 group-hover:text-pink-500 uppercase italic tracking-tighter">Hall of Fame Candidate (Editor's Pick)</span>
+              </label>
+            )}
+            {isMaster && (
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input 
+                  type="checkbox" 
+                  checked={formData.isNotice} 
+                  onChange={e => setFormData({...formData, isNotice: e.target.checked})}
+                  className="w-5 h-5 accent-pink-500 bg-slate-800 border-slate-700" 
+                />
+                <span className="text-xs font-black text-pink-500 uppercase italic tracking-tighter">📌 Register as Notice (Pin to Top)</span>
+              </label>
+            )}
+          </div>
         </div>
 
         <div className="flex gap-4 mt-10">

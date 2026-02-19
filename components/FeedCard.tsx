@@ -11,11 +11,16 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
   const isIsolated = item.reportsCount >= 3;
   const mediaUrls = item.mediaUrls || [];
   const hasMultipleMedia = mediaUrls.length > 1;
+  const isNotice = item.isNotice === true;
 
   return (
     <div 
       onClick={() => onSelect(item)}
-      className={`group flex items-center gap-6 p-4 bg-slate-900/40 border border-slate-800 rounded-[28px] hover:border-pink-500/30 transition-all cursor-pointer relative overflow-hidden ${isIsolated && isAdmin ? 'bg-red-500/5 border-red-500/20' : ''}`}
+      className={`group flex items-center gap-6 p-4 border rounded-[28px] transition-all cursor-pointer relative overflow-hidden 
+        ${isNotice 
+          ? 'bg-pink-500/5 border-pink-500/50 border-2 shadow-[0_0_20px_rgba(236,72,153,0.1)]' 
+          : 'bg-slate-900/40 border-slate-800 hover:border-pink-500/30'} 
+        ${isIsolated && isAdmin ? 'bg-red-500/5 border-red-500/20' : ''}`}
     >
       {/* 썸네일 */}
       <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-2xl bg-slate-800 overflow-hidden shrink-0 border border-slate-700/50 relative">
@@ -43,6 +48,11 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
       {/* 정보 */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
         <div className="flex items-center gap-2 mb-1">
+          {isNotice && (
+            <span className="text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter bg-pink-500 text-white shadow-lg">
+              📌 공지
+            </span>
+          )}
           <span className={`text-[9px] font-black px-2 py-0.5 rounded-md uppercase tracking-tighter border ${item.isEditorPick ? 'bg-pink-500/10 text-pink-500 border-pink-500/20' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>
             {item.category}
           </span>
@@ -51,7 +61,7 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
           )}
         </div>
         
-        <h4 className="text-lg font-black text-white italic truncate leading-tight group-hover:text-pink-500 transition-colors">
+        <h4 className={`text-lg font-black italic truncate leading-tight transition-colors ${isNotice ? 'text-pink-500' : 'text-white group-hover:text-pink-500'}`}>
           {item.title}
         </h4>
         
@@ -61,7 +71,7 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, isAdmin, onSelect }) => {
 
         <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
           <div className="flex items-center gap-1.5">
-            <span className="text-pink-500">{item.authorNickname}</span>
+            <span className={isNotice ? 'text-pink-400' : 'text-pink-500'}>{item.authorNickname}</span>
             {item.authorRole === 'admin' && <span className="text-[8px] bg-pink-500/20 text-pink-500 px-1 rounded uppercase">ADMIN</span>}
           </div>
           <span className="opacity-40">|</span>

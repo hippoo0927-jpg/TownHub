@@ -73,6 +73,7 @@ export interface FeedItem {
   reportsCount: number;
   views: number;
   isEditorPick: boolean;
+  isNotice: boolean;
   createdAt?: any;
 }
 
