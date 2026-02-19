@@ -804,67 +804,91 @@ const NicknameModal = () => {
                 </div>
               )}
               {step === 'EDITOR' && pixelData && (
-                <div className="flex flex-col lg:flex-row gap-0 h-full min-h-0 animate-in fade-in overflow-hidden relative">
-                  <div className="flex-1 flex flex-col gap-6 lg:gap-10 min-h-0 overflow-hidden px-4">
-                    <div className="bg-slate-900/40 p-5 rounded-[40px] border border-slate-800/50 flex items-center justify-between shrink-0 z-[100] backdrop-blur-md">
-                       <button onClick={()=>setStep(studioMode === 'BOOK_COVER' ? 'TEXT' : 'FRAME')} className="px-6 py-3 bg-slate-800 rounded-2xl font-black text-[11px] text-slate-400 hover:text-white transition-all">이전 단계</button>
-                       <div className="flex items-center gap-3 lg:gap-6">
-                          <div className="bg-slate-800 p-1.5 rounded-2xl flex items-center gap-3"><button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">-</button><span className="text-[11px] font-black w-12 text-center text-white">{zoom}%</span><button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">+</button></div>
-                          <div className="relative">
-                            <button onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }} className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black shadow-2xl text-[11px] hover:bg-[#EC4899] hover:text-white transition-all">Export {showExportMenu ? '▲' : '▼'}</button>
-                            {showExportMenu && (
-                              <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right animate-in zoom-in-95">
-                                <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
-                                <button disabled={isExporting} onClick={exportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all"><div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div><span className="font-black text-white text-xs">ZIP Guide Download</span></button>
-                              </div>
-                            )}
-                          </div>
-                       </div>
-                    </div>
-                    {/* UI 워크스페이스 그리드 렌더링 (5x5 보조선 적용) */}
-                    <div ref={editorScrollRef} className="flex-1 bg-slate-900/20 rounded-[64px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10" style={{'--cell-size': `${zoom / 20}px`, '--font-size': zoom >= 250 ? `${Math.max(7, zoom / 60)}px` : '0px'} as any}>
-                      <div className="inline-block p-[100px] lg:p-[300px]">
-                        <div className="bg-slate-900 p-8 lg:p-16 border-[12px] border-black shadow-2xl rounded-sm">
-                          <div className="pixel-grid" style={{display: 'grid', gridTemplateColumns: `repeat(${pixelData.width}, var(--cell-size))`}}>
-                            {pixelData.colors.map((color, idx) => {
-                              const row = Math.floor(idx / pixelData.width);
-                              const col = idx % pixelData.width;
-                              const pId = paletteIndexMap.get(color);
-                              const isSelected = activePaletteId === pId;
-                              
-                              // 5x5 그리드 선 강조 로직
-                              const isMajorRight = (col + 1) % 5 === 0 && (col + 1) !== pixelData.width;
-                              const isMajorBottom = (row + 1) % 5 === 0 && (row + 1) !== pixelData.height;
-
-                              return (
-                                <div key={idx} 
-                                  style={{backgroundColor: color, width: 'var(--cell-size)', height: 'var(--cell-size)', color: getContrastColor(color), fontSize: 'var(--font-size)'}}
-                                  className={`pixel-item flex items-center justify-center font-black transition-all border-black/5 ${isMajorRight ? 'border-r-2 border-r-black/40' : 'border-r-[0.5px]'} ${isMajorBottom ? 'border-b-2 border-b-black/40' : 'border-b-[0.5px]'} ${isSelected ? 'ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl' : 'hover:opacity-90'}`}
-                                  onClick={() => setActivePaletteId(isSelected ? null : pId)}>
-                                  {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0'}`}>
-                    <div className="w-[85vw] lg:w-[440px] bg-slate-900 p-8 lg:p-14 rounded-l-[48px] lg:rounded-[100px] shadow-2xl border-l border-slate-800 h-full flex flex-col min-h-0">
-                       <div className="flex items-center justify-between mb-8 shrink-0"><h3 className="font-black italic text-2xl text-white">Palette <span className="text-[11px] bg-slate-800 px-4 py-1.5 rounded-full not-italic text-slate-500">{pixelData.palette.length}</span></h3><button onClick={() => setShowPalette(false)} className="lg:hidden text-slate-500 font-black text-2xl">✕</button></div>
-                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-2"><div className="grid grid-cols-1 gap-4 lg:gap-6">
-                           {pixelData.palette.map((p, i) => (
-                             <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} className={`flex items-center gap-5 p-4 rounded-[28px] border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-slate-800 border-[#EC4899] shadow-xl scale-[1.03]':'border-transparent hover:bg-slate-800/40'}`}><div className="w-12 h-12 rounded-[16px] flex items-center justify-center font-black text-sm border-2 border-slate-900 shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div><div className="flex-1 min-w-0 pr-1"><div className="flex items-center gap-3 w-full"><p className="text-sm font-black truncate text-white italic">{p.index}</p><span className="text-[9px] bg-slate-900 text-slate-400 px-3 py-1.5 rounded-xl font-black shrink-0">{p.count} PX</span></div><p className="text-[10px] font-mono text-slate-600 uppercase mt-1.5">{p.hex}</p></div></div>
-                           ))}
-                       </div></div>
-                    </div>
-                  </div>
+  <div className="flex flex-col lg:flex-row gap-0 h-full min-h-0 animate-in fade-in overflow-hidden relative">
+    <div className="flex-1 flex flex-col gap-6 lg:gap-10 min-h-0 overflow-hidden px-4">
+      <div className="bg-slate-900/40 p-5 rounded-[40px] border border-slate-800/50 flex items-center justify-between shrink-0 z-[100] backdrop-blur-md">
+         <button onClick={()=>setStep(studioMode === 'BOOK_COVER' ? 'TEXT' : 'FRAME')} className="px-6 py-3 bg-slate-800 rounded-2xl font-black text-[11px] text-slate-400 hover:text-white transition-all">이전 단계</button>
+         <div className="flex items-center gap-3 lg:gap-6">
+            <div className="bg-slate-800 p-1.5 rounded-2xl flex items-center gap-3">
+              <button onClick={()=>setZoom(z=>Math.max(100,z-100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">-</button>
+              <span className="text-[11px] font-black w-12 text-center text-white">{zoom}%</span>
+              <button onClick={()=>setZoom(z=>Math.min(1000,z+100))} className="w-10 h-10 font-black bg-slate-900 text-white rounded-xl hover:bg-[#EC4899]">+</button>
+            </div>
+            <div className="relative">
+              <button onClick={(e) => { e.stopPropagation(); setShowExportMenu(!showExportMenu); }} className="px-8 py-4 bg-white text-slate-900 rounded-2xl font-black shadow-2xl text-[11px] hover:bg-[#EC4899] hover:text-white transition-all">Export {showExportMenu ? '▲' : '▼'}</button>
+              {showExportMenu && (
+                <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right animate-in zoom-in-95">
+                  <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
+                  <button disabled={isExporting} onClick={exportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all"><div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div><span className="font-black text-white text-xs">ZIP Guide Download</span></button>
                 </div>
               )}
             </div>
+         </div>
+      </div>
+
+      {/* 최적화된 워크스페이스 영역 */}
+      <div ref={editorScrollRef} className="flex-1 bg-slate-900/20 rounded-[64px] overflow-auto relative border border-slate-800/50 custom-scrollbar z-10">
+        <div className="inline-block p-[100px] lg:p-[300px]">
+          <div 
+            className="bg-slate-900 p-8 lg:p-16 border-[12px] border-black shadow-2xl rounded-sm transition-transform duration-75 ease-out"
+            style={{ 
+              // 1. 변수를 일일이 계산하지 않고 전체를 scale로 조절 (핵심!)
+              transform: `scale(${zoom / 400})`, 
+              transformOrigin: 'center center',
+              willChange: 'transform'
+            }}
+          >
+            <div 
+              className="pixel-grid" 
+              style={{
+                display: 'grid', 
+                // 2. 셀 크기는 20px로 고정하고 scale만 바꿈
+                gridTemplateColumns: `repeat(${pixelData.width}, 20px)`
+              }}
+            >
+              {pixelData.colors.map((color, idx) => {
+                const row = Math.floor(idx / pixelData.width);
+                const col = idx % pixelData.width;
+                const pId = paletteIndexMap.get(color);
+                const isSelected = activePaletteId === pId;
+                const isMajorRight = (col + 1) % 5 === 0 && (col + 1) !== pixelData.width;
+                const isMajorBottom = (row + 1) % 5 === 0 && (row + 1) !== pixelData.height;
+
+                return (
+                  <div key={idx} 
+                    style={{
+                      backgroundColor: color, 
+                      width: '20px', 
+                      height: '20px', 
+                      color: getContrastColor(color),
+                      // 3. 텍스트 크기 가독성 조절
+                      fontSize: zoom >= 250 ? '8px' : '0px'
+                    }}
+                    className={`pixel-item flex items-center justify-center font-black transition-all border-black/5 ${isMajorRight ? 'border-r-2 border-r-black/40' : 'border-r-[0.5px]'} ${isMajorBottom ? 'border-b-2 border-b-black/40' : 'border-b-[0.5px]'} ${isSelected ? 'ring-4 ring-[#EC4899] scale-125 z-10 shadow-2xl' : 'hover:opacity-90'}`}
+                    onClick={() => setActivePaletteId(isSelected ? null : pId)}>
+                    {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        );
+        </div>
+      </div>
+    </div>
+    
+    {/* 오른쪽 팔레트 영역은 기존과 동일 */}
+    <div className={`fixed lg:relative top-0 right-0 h-full lg:h-auto z-[200] lg:z-auto transition-all duration-500 flex ${showPalette ? 'translate-x-0 opacity-100' : 'translate-x-full lg:translate-x-0 lg:w-0 opacity-0'}`}>
+      <div className="w-[85vw] lg:w-[440px] bg-slate-900 p-8 lg:p-14 rounded-l-[48px] lg:rounded-[100px] shadow-2xl border-l border-slate-800 h-full flex flex-col min-h-0">
+         <div className="flex items-center justify-between mb-8 shrink-0"><h3 className="font-black italic text-2xl text-white">Palette <span className="text-[11px] bg-slate-800 px-4 py-1.5 rounded-full not-italic text-slate-500">{pixelData.palette.length}</span></h3><button onClick={() => setShowPalette(false)} className="lg:hidden text-slate-500 font-black text-2xl">✕</button></div>
+         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2"><div className="grid grid-cols-1 gap-4 lg:gap-6">
+             {pixelData.palette.map((p, i) => (
+               <div key={p.index} onClick={()=>setActivePaletteId(activePaletteId===p.index?null:p.index)} className={`flex items-center gap-5 p-4 rounded-[28px] border-2 transition-all cursor-pointer ${activePaletteId===p.index?'bg-slate-800 border-[#EC4899] shadow-xl scale-[1.03]':'border-transparent hover:bg-slate-800/40'}`}><div className="w-12 h-12 rounded-[16px] flex items-center justify-center font-black text-sm border-2 border-slate-900 shrink-0" style={{backgroundColor:p.hex, color:getContrastColor(p.hex)}}>{i+1}</div><div className="flex-1 min-w-0 pr-1"><div className="flex items-center gap-3 w-full"><p className="text-sm font-black truncate text-white italic">{p.index}</p><span className="text-[9px] bg-slate-900 text-slate-400 px-3 py-1.5 rounded-xl font-black shrink-0">{p.count} PX</span></div><p className="text-[10px] font-mono text-slate-600 uppercase mt-1.5">{p.hex}</p></div></div>
+             ))}
+         </div></div>
+      </div>
+    </div>
+  </div>
+)}
       case 'DESIGN_FEED':
         return (
           <div className="flex-1 flex flex-col items-center justify-center p-10 text-center space-y-12 animate-in fade-in zoom-in-95 duration-700">
