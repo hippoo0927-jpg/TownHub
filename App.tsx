@@ -39,13 +39,13 @@ interface DiscordItem {
 }
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
-  authDomain: "town-hub0927.firebaseapp.com",
-  projectId: "town-hub0927",
-  storageBucket: "town-hub0927.firebasestorage.app",
-  messagingSenderId: "329581279235",
-  appId: "1:329581279235:web:1337185e104498ad483636",
-  measurementId: "G-D0DMJSHCLZ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
