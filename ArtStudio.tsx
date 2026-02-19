@@ -1,7 +1,8 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { AppStep, StudioMode, PixelData, TextLayer } from './types';
 import { getContrastColor, formatPaletteIndex } from './utils';
+import JSZip from 'jszip';
 
 interface ArtStudioProps {
   step: AppStep;
@@ -18,7 +19,6 @@ interface ArtStudioProps {
   activePaletteId: string | null;
   setActivePaletteId: (id: string | null) => void;
   textLayers: TextLayer[];
-  // Fix: changed from (layers: TextLayer[]) => void to React.Dispatch<React.SetStateAction<TextLayer[]>> to support functional updates
   setTextLayers: React.Dispatch<React.SetStateAction<TextLayer[]>>;
   selectedTextId: string | null;
   setSelectedTextId: (id: string | null) => void;
@@ -50,13 +50,91 @@ const ArtStudio: React.FC<ArtStudioProps> = (props) => {
     step, setStep, studioMode, setStudioMode, canvasDim, setCanvasDim,
     crop, setCrop, zoom, setZoom, pixelData, activePaletteId, setActivePaletteId,
     textLayers, setTextLayers, selectedTextId, setSelectedTextId, splitSize, setSplitSize,
-    showPalette, setShowPalette, showExportMenu, setShowExportMenu, isExporting,
-    onStartPixelation, onExportAsZip, onResetPosition, onResetScale, onFitToCanvas,
+    showPalette, setShowPalette, showExportMenu, setShowExportMenu, isExporting: propsIsExporting,
+    onStartPixelation, onResetPosition, onResetScale, onFitToCanvas,
     onDragStart, onDragMove, onDragEnd, fileInputRef, imageObjRef,
     previewCanvasRef, frameContainerRef, editorScrollRef, paletteIndexMap
   } = props;
 
+  const [localIsExporting, setLocalIsExporting] = useState(false);
   const selectedText = textLayers.find(l => l.id === selectedTextId);
+
+  // 도안 이미지 생성 및 다운로드 (ID 텍스트 포함)
+  const downloadImage = async () => {
+    if (!pixelData) return;
+    setLocalIsExporting(true);
+    
+    try {
+      const zip = new JSZip();
+      const scale = 40; // 고해상도 픽셀 크기
+      
+      // 1. 전체 도안 이미지 생성
+      const mainCanvas = document.createElement('canvas');
+      mainCanvas.width = pixelData.width * scale;
+      mainCanvas.height = pixelData.height * scale;
+      const ctx = mainCanvas.getContext('2d');
+      if (!ctx) return;
+
+      pixelData.colors.forEach((color, idx) => {
+        const x = (idx % pixelData.width) * scale;
+        const y = Math.floor(idx / pixelData.width) * scale;
+        const pId = paletteIndexMap.get(color);
+        
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y, scale, scale);
+        
+        // 격자선
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, scale, scale);
+
+        // 5x5 강조선
+        const colIdx = idx % pixelData.width;
+        const rowIdx = Math.floor(idx / pixelData.width);
+        if ((colIdx + 1) % 5 === 0) {
+          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+          ctx.beginPath(); ctx.moveTo(x + scale, y); ctx.lineTo(x + scale, y + scale); ctx.stroke();
+        }
+        if ((rowIdx + 1) % 5 === 0) {
+          ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+          ctx.beginPath(); ctx.moveTo(x, y + scale); ctx.lineTo(x + scale, y + scale); ctx.stroke();
+        }
+
+        // ID 텍스트 삽입 (중심)
+        if (pId) {
+          ctx.fillStyle = getContrastColor(color);
+          ctx.font = `bold ${scale * 0.35}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pId, x + scale / 2, y + scale / 2);
+        }
+      });
+
+      const mainBlob = await new Promise<Blob | null>(res => mainCanvas.toBlob(res, 'image/png'));
+      if (mainBlob) zip.file("full_pattern_guide.png", mainBlob);
+
+      // 2. 가이드 텍스트 파일 추가
+      let guideText = "TOWN HUB PIXEL ART GUIDE\n\n";
+      pixelData.palette.forEach((p, i) => {
+        guideText += `[${i + 1}] ID: ${p.index} | HEX: ${p.hex} | COUNT: ${p.count}px\n`;
+      });
+      zip.file("palette_info.txt", guideText);
+
+      // 3. ZIP 다운로드
+      const content = await zip.generateAsync({ type: "blob" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(content);
+      link.download = `town_studio_export_${Date.now()}.zip`;
+      link.click();
+      
+      setShowExportMenu(false);
+    } catch (e) {
+      console.error(e);
+      alert("내보내기 중 오류가 발생했습니다.");
+    } finally {
+      setLocalIsExporting(false);
+    }
+  };
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar p-4 lg:p-14 lg:pt-4">
@@ -131,7 +209,6 @@ const ArtStudio: React.FC<ArtStudioProps> = (props) => {
                             autoFocus
                             type="text" 
                             value={selectedText.text} 
-                            // Fix: Functional update works after updating interface
                             onChange={e => setTextLayers(prev => prev.map(l => l.id === selectedTextId ? { ...l, text: e.target.value } : l))} 
                             className="w-full p-5 bg-slate-900 rounded-2xl font-black text-sm text-white outline-none ring-2 ring-slate-700 focus:ring-[#EC4899]" 
                           />
@@ -158,7 +235,12 @@ const ArtStudio: React.FC<ArtStudioProps> = (props) => {
                       {showExportMenu && (
                         <div className="absolute right-0 mt-4 w-72 bg-slate-900 rounded-[40px] shadow-2xl border border-slate-800 p-5 z-[150] origin-top-right">
                           <div className="p-5 bg-slate-800 rounded-3xl mb-3"><label className="text-[10px] font-black text-slate-500 block mb-2 uppercase">Grid Size (px)</label><input type="number" value={splitSize} onChange={(e) => setSplitSize(Math.max(1, Number(e.target.value)))} className="w-full p-4 bg-slate-900 rounded-2xl text-center font-black text-white outline-none border border-slate-700" /></div>
-                          <button disabled={isExporting} onClick={onExportAsZip} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all"><div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">📦</div><span className="font-black text-white text-xs">ZIP Guide Download</span></button>
+                          <button disabled={localIsExporting} onClick={downloadImage} className="w-full p-5 text-left hover:bg-slate-800 flex items-center gap-5 rounded-3xl group transition-all">
+                            <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center text-2xl group-hover:bg-[#EC4899] transition-colors">
+                              {localIsExporting ? '⏳' : '📦'}
+                            </div>
+                            <span className="font-black text-white text-xs">{localIsExporting ? 'Exporting...' : 'ZIP Guide Download'}</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -178,7 +260,7 @@ const ArtStudio: React.FC<ArtStudioProps> = (props) => {
                           <div key={idx} style={{ backgroundColor: color, width: '20px', height: '20px', color: getContrastColor(color), fontSize: '6px' }}
                             className={`pixel-item flex items-center justify-center font-black transition-opacity border-black/5 ${isMajorRight ? 'border-r-2 border-r-black/40' : 'border-r-[0.5px]'} ${isMajorBottom ? 'border-b-2 border-b-black/40' : 'border-b-[0.5px]'} ${isSelected ? 'ring-2 ring-[#EC4899] z-10 shadow-2xl' : 'hover:opacity-90'}`}
                             onClick={() => setActivePaletteId(isSelected ? null : pId)}>
-                            {zoom >= 250 && formatPaletteIndex(pixelData.palette.findIndex(p => p.hex === color) + 1)}
+                            {zoom >= 250 && pId}
                           </div>
                         );
                       })}
