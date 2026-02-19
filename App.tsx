@@ -1,7 +1,8 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { AppStep, PixelData, StudioMode, TextLayer } from './types';
 import { processArtStudioPixel } from './services/pixelService';
@@ -47,17 +48,19 @@ interface FriendItem {
   imageURL: string;
   category: string;
   uid: string;
+  likes: string[];
+  likesCount: number;
   createdAt?: any;
 }
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -162,7 +165,12 @@ const App: React.FC = () => {
     }
     // 친구 목록 실시간 로드
     const unsubFriends = onSnapshot(query(collection(db, "friends"), orderBy("createdAt", "desc")), (snap) => {
-      setFriendsList(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendItem)));
+      setFriendsList(snap.docs.map(doc => ({ 
+        id: doc.id, 
+        likes: doc.data().likes || [],
+        likesCount: doc.data().likesCount || 0,
+        ...doc.data() 
+      } as FriendItem)));
     });
 
     return () => { unsubApproved(); unsubPending(); unsubFriends(); };
@@ -200,7 +208,7 @@ const App: React.FC = () => {
         title: '뉴비',
         role: adminEmails.includes(user.email || "") ? 'admin' : 'user', 
         createdAt: serverTimestamp() 
-      });
+      }, { merge: true });
       setNickname(tempNickname);
       setUserTitle('뉴비');
       setIsNicknameModalOpen(false); 
@@ -213,22 +221,61 @@ const App: React.FC = () => {
     if (!user) return alert("로그인이 필요합니다.");
     if (!friendFormData.gameId || !friendFormData.description) return alert("내용을 모두 입력해주세요.");
     
+    // 7일 쿨타임 체크 (관리자 예외)
+    if (!isAdmin) {
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const lastReg = userDoc.data()?.lastFriendReg?.toDate();
+      if (lastReg) {
+        const now = new Date();
+        const diffDays = (now.getTime() - lastReg.getTime()) / (1000 * 3600 * 24);
+        if (diffDays < 7) {
+          const nextDate = new Date(lastReg.getTime() + 7 * 24 * 3600 * 1000);
+          return alert(`프로필 카드는 1주일에 한 번만 등록 가능합니다. 차기 등록 가능일: ${nextDate.toLocaleDateString()}`);
+        }
+      }
+    }
+
     try {
       await addDoc(collection(db, "friends"), {
         nickname: nickname,
         title: userTitle,
         gameId: friendFormData.gameId,
         description: friendFormData.description,
-        imageURL: friendFormData.imageURL || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop", // 기본 이미지
+        imageURL: friendFormData.imageURL || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop",
         category: friendFormData.category,
         uid: user.uid,
+        likes: [],
+        likesCount: 0,
         createdAt: serverTimestamp()
       });
+      // 쿨타임 갱신
+      await setDoc(doc(db, "users", user.uid), { lastFriendReg: serverTimestamp() }, { merge: true });
+      
       setIsFriendModalOpen(false);
       setFriendFormData({ gameId: '', description: '', imageURL: '', category: '전체' });
       showToast("친구 구인 게시글이 등록되었습니다!");
     } catch (e) {
       alert("등록 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleLikeFriend = async (id: string) => {
+    if (!user) return alert("로그인이 필요합니다.");
+    const friendRef = doc(db, "friends", id);
+    const friendDoc = await getDoc(friendRef);
+    if (!friendDoc.exists()) return;
+    
+    const likes = friendDoc.data().likes || [];
+    if (likes.includes(user.uid)) {
+      await updateDoc(friendRef, {
+        likes: arrayRemove(user.uid),
+        likesCount: increment(-1)
+      });
+    } else {
+      await updateDoc(friendRef, {
+        likes: arrayUnion(user.uid),
+        likesCount: increment(1)
+      });
     }
   };
 
@@ -394,6 +441,7 @@ const App: React.FC = () => {
               onRejectDiscord={rejectDiscord}
               onReportUser={handleReportUser}
               onDeleteFriend={handleDeleteFriend}
+              onLikeFriend={handleLikeFriend}
             />
           )}
         </div>
