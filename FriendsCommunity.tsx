@@ -1,11 +1,5 @@
 import React, { useState, useMemo } from 'react';
-
-interface DiscordItem {
-  id: string;
-  name: string;
-  link: string;
-  desc: string;
-}
+import { DiscordItem } from './types';
 
 interface FriendItem {
   id: string;
@@ -34,8 +28,10 @@ interface FriendsCommunityProps {
   approvedDiscords: DiscordItem[];
   onOpenFriendModal: () => void;
   onOpenDiscordModal: () => void;
-  onApproveDiscord: (req: any) => void;
+  onApproveDiscord: (reqId: string, rank?: number) => void;
   onRejectDiscord: (id: string) => void;
+  onDeleteDiscord: (id: string) => void;
+  onLikeDiscord: (id: string) => void;
   onReportUser: (id: string, nickname: string) => void;
   onDeleteFriend: (id: string) => void;
   onLikeFriend: (id: string) => void;
@@ -56,6 +52,8 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
     onOpenDiscordModal, 
     onApproveDiscord, 
     onRejectDiscord,
+    onDeleteDiscord,
+    onLikeDiscord,
     onReportUser,
     onDeleteFriend,
     onLikeFriend,
@@ -65,6 +63,7 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
   const [activeTab, setActiveTab] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
   const [showReportersList, setShowReportersList] = useState<string | null>(null);
+  const [rankInput, setRankInput] = useState<string>("");
 
   const cooldownDays = useMemo(() => {
     if (!user || isAdmin || !lastFriendReg) return 0;
@@ -80,22 +79,38 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
   const filteredFriends = useMemo(() => {
     return friendsList
       .filter(f => {
-        // 일반 유저는 신고 3회 이상 카드 숨김 (관리자는 예외)
         if (!isAdmin && (f.reportsCount || 0) >= 3) return false;
-        
         const matchCategory = activeTab === "전체" || f.category === activeTab;
         const matchSearch = f.nickname.toLowerCase().includes(searchQuery.toLowerCase()) || 
                             f.gameId.toLowerCase().includes(searchQuery.toLowerCase());
         return matchCategory && matchSearch;
       })
       .sort((a, b) => {
-        // 관리자는 신고 누적된 것부터 확인하도록 정렬 옵션 추가할 수 있지만 기본은 인기순 유지
         if ((b.likesCount || 0) !== (a.likesCount || 0)) {
           return (b.likesCount || 0) - (a.likesCount || 0);
         }
         return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
       });
   }, [friendsList, activeTab, searchQuery, isAdmin]);
+
+  const sortedDiscords = useMemo(() => {
+    const now = new Date();
+    return [...approvedDiscords].sort((a, b) => {
+      // 1. Rank priority (Active ranks 1-10)
+      const aRankActive = a.rank && a.rankExpiredAt?.toDate && a.rankExpiredAt.toDate() > now;
+      const bRankActive = b.rank && b.rankExpiredAt?.toDate && b.rankExpiredAt.toDate() > now;
+
+      if (aRankActive && bRankActive) return (a.rank || 99) - (b.rank || 99);
+      if (aRankActive && !bRankActive) return -1;
+      if (!aRankActive && bRankActive) return 1;
+
+      // 2. LikesCount
+      if ((b.likesCount || 0) !== (a.likesCount || 0)) return (b.likesCount || 0) - (a.likesCount || 0);
+
+      // 3. CreatedAt
+      return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+    });
+  }, [approvedDiscords]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -106,7 +121,7 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
     if (!verifiedAt) return false;
     const date = verifiedAt.toDate ? verifiedAt.toDate() : new Date(verifiedAt);
     const diff = new Date().getTime() - date.getTime();
-    return diff < 24 * 60 * 60 * 1000; // 24시간
+    return diff < 24 * 60 * 60 * 1000;
   };
 
   return (
@@ -159,7 +174,6 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
                   
                   return (
                     <div key={friend.id} className={`bg-black/40 border rounded-[32px] p-6 flex flex-col md:flex-row gap-6 transition-all relative group overflow-hidden ${isIsolated && isAdmin ? 'border-red-600/50 bg-red-900/10' : isPopular ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-slate-800 hover:border-pink-500/20'}`}>
-                      {/* 카드 좌측 */}
                       <div className="w-full md:w-40 flex flex-col gap-3 shrink-0">
                          <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden border border-slate-700 relative">
                             <img src={friend.imageURL} alt="Character" className="w-full h-full object-cover" />
@@ -175,7 +189,6 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
                          </div>
                       </div>
 
-                      {/* 카드 우측 */}
                       <div className="flex-1 flex flex-col min-w-0">
                          <div className="flex justify-between items-start mb-4 gap-2">
                             <div className="flex flex-col min-w-0">
@@ -247,31 +260,85 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
           </div>
         </div>
 
-        {/* 디스코드 섹션 */}
         <div className="flex-1 bg-slate-900/20 border border-slate-800 rounded-[40px] p-8 lg:p-10 flex flex-col overflow-hidden max-w-md">
           <h2 className="text-3xl font-black italic text-white uppercase tracking-tighter text-center mb-10">Discord</h2>
           <button onClick={() => user ? onOpenDiscordModal() : alert("로그인이 필요합니다.")} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-xs uppercase mb-10 shadow-lg">디스코드 신청</button>
-          <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar">
+          
+          <div className="flex-1 overflow-y-auto space-y-4 custom-scrollbar pr-2">
             {isAdmin && pendingDiscords.length > 0 && (
               <div className="mb-10 p-6 border border-pink-500/30 rounded-3xl bg-pink-500/5">
-                <h3 className="text-xs font-black text-pink-500 uppercase mb-4 tracking-widest">Pending (Admin)</h3>
+                <h3 className="text-xs font-black text-pink-500 uppercase mb-4 tracking-widest">Pending Requests</h3>
                 {pendingDiscords.map((req) => (
-                  <div key={req.id} className="bg-black/40 border border-slate-800 rounded-2xl p-4 mb-3">
-                    <p className="text-sm font-bold text-white mb-1">{req.name}</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => onApproveDiscord(req)} className="flex-1 py-2 bg-green-600 text-white text-[10px] font-black rounded-lg">APPROVE</button>
-                      <button onClick={() => onRejectDiscord(req.id)} className="px-3 py-2 bg-red-600 text-white text-[10px] font-black rounded-lg">REJECT</button>
+                  <div key={req.id} className="bg-black/40 border border-slate-800 rounded-2xl p-4 mb-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <img src={req.imageUrl || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop"} className="w-10 h-10 rounded-lg object-cover" alt="Icon" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{req.name}</p>
+                        <p className="text-[10px] text-slate-500 italic">By: {req.applicantNickname}</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
+                        <input 
+                          type="number" 
+                          placeholder="Rank (1-10)" 
+                          className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-2 text-[10px] text-white outline-none" 
+                          onChange={(e) => setRankInput(e.target.value)}
+                        />
+                        <button onClick={() => onApproveDiscord(req.id, rankInput ? Number(rankInput) : undefined)} className="px-3 py-2 bg-indigo-600 text-white text-[10px] font-black rounded-lg">승인</button>
+                      </div>
+                      <button onClick={() => onRejectDiscord(req.id)} className="w-full py-2 bg-red-600/20 text-red-500 border border-red-500/30 text-[10px] font-black rounded-lg">거절/삭제</button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            {approvedDiscords.map((srv) => (
-              <div key={srv.id} className="bg-black/40 border border-slate-800 rounded-3xl p-6 group hover:border-indigo-500/30 transition-all">
-                <div className="flex items-center justify-between mb-2"><h4 className="text-white font-black italic">{srv.name}</h4><button onClick={() => window.open(srv.link, '_blank')} className="px-4 py-1.5 border border-slate-700 rounded-xl text-[10px] font-black hover:bg-white hover:text-black transition-all">JOIN</button></div>
-                <p className="text-slate-500 text-[10px] line-clamp-2">{srv.desc}</p>
-              </div>
-            ))}
+
+            {sortedDiscords.map((srv) => {
+              const now = new Date();
+              const isPremium = srv.rank && srv.rankExpiredAt?.toDate && srv.rankExpiredAt.toDate() > now;
+              const hasLiked = user && srv.likes?.includes(user.uid);
+
+              return (
+                <div key={srv.id} className={`bg-black/40 border rounded-[32px] p-6 group transition-all relative overflow-hidden ${isPremium ? 'border-indigo-500/50 bg-indigo-500/10 shadow-[0_0_20px_rgba(99,102,241,0.2)]' : 'border-slate-800 hover:border-indigo-500/30'}`}>
+                  {isPremium && (
+                    <div className="absolute top-0 right-0 px-4 py-1.5 bg-indigo-600 text-white font-black text-[9px] uppercase italic tracking-tighter rounded-bl-2xl shadow-lg flex items-center gap-1">
+                      <span>💎 PREMIUM</span>
+                      {srv.rank && <span>#{srv.rank}</span>}
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-14 h-14 bg-slate-800 rounded-2xl overflow-hidden border border-slate-700 shadow-inner group-hover:scale-110 transition-transform">
+                      <img src={srv.imageUrl || "https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop"} className="w-full h-full object-cover" alt="Icon" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className={`font-black italic text-lg truncate ${isPremium ? 'text-white' : 'text-slate-200'}`}>{srv.name}</h4>
+                      <div className="flex items-center gap-3 mt-1">
+                        <button 
+                          onClick={() => onLikeDiscord(srv.id)}
+                          className={`text-[10px] font-black flex items-center gap-1.5 transition-colors ${hasLiked ? 'text-pink-500' : 'text-slate-500 hover:text-white'}`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className={`w-3 h-3 ${hasLiked ? 'fill-current' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                          <span>{srv.likesCount || 0}</span>
+                        </button>
+                        <span className="text-slate-700">|</span>
+                        <span className="text-[10px] font-bold text-slate-600">By {srv.applicantNickname}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 mb-6 min-h-[32px]">{srv.desc}</p>
+                  
+                  <div className="flex gap-2">
+                    <button onClick={() => window.open(srv.link, '_blank')} className="flex-1 py-3.5 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase hover:bg-indigo-600 hover:text-white transition-all shadow-lg">JOIN SERVER</button>
+                    {isAdmin && (
+                      <button onClick={() => onDeleteDiscord(srv.id)} className="px-4 py-3.5 bg-red-600/20 text-red-500 border border-red-500/30 rounded-2xl font-black text-xs transition-all hover:bg-red-600 hover:text-white" title="관리자 삭제">삭제</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment, where, getDocs, Timestamp } from "firebase/firestore";
-import { AppStep, PixelData, StudioMode, TextLayer } from './types';
+import { AppStep, PixelData, StudioMode, TextLayer, DiscordItem } from './types';
 import { processArtStudioPixel } from './services/pixelService';
 
 // 분리된 컴포넌트 임포트
@@ -27,17 +27,6 @@ interface UpdateLog {
   content: string;
 }
 
-interface DiscordItem {
-  id: string;
-  name: string;
-  link: string;
-  desc: string;
-  userId?: string;
-  userEmail?: string;
-  applicantNickname?: string;
-  createdAt?: any;
-}
-
 interface FriendItem {
   id: string;
   nickname: string;
@@ -57,14 +46,13 @@ interface FriendItem {
 }
 
 const firebaseConfig = {
-  const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -99,7 +87,7 @@ const App: React.FC = () => {
   const [isLogsLoading, setIsLogsLoading] = useState(true);
   const [approvedDiscords, setApprovedDiscords] = useState<DiscordItem[]>([]);
   const [pendingDiscords, setPendingDiscords] = useState<DiscordItem[]>([]);
-  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '' });
+  const [discordData, setDiscordData] = useState({ name: '', link: '', desc: '', imageUrl: '' });
 
   // Friends States
   const [friendsList, setFriendsList] = useState<FriendItem[]>([]);
@@ -141,7 +129,6 @@ const App: React.FC = () => {
 
   // Auth & DB Initialization
   useEffect(() => {
-    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -162,19 +149,22 @@ const App: React.FC = () => {
       }
     });
     return () => unsubscribe();
-    
   }, []);
 
   useEffect(() => {
-    const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), orderBy("createdAt", "desc")), (snap) => {
+    // Approved Discords stream
+    const unsubApproved = onSnapshot(query(collection(db, "discord_servers"), where("status", "==", "approved")), (snap) => {
       setApprovedDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DiscordItem)));
     });
+
+    // Pending Discords stream (Admin only sees requests)
     let unsubPending = () => {};
     if (isAdmin) {
-      unsubPending = onSnapshot(query(collection(db, "discord_requests"), orderBy("createdAt", "desc")), (snap) => {
+      unsubPending = onSnapshot(query(collection(db, "discord_servers"), where("status", "==", "pending")), (snap) => {
         setPendingDiscords(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as DiscordItem)));
       });
     }
+
     // 친구 목록 실시간 로드
     const unsubFriends = onSnapshot(query(collection(db, "friends"), orderBy("createdAt", "desc")), (snap) => {
       setFriendsList(snap.docs.map(doc => ({ 
@@ -309,21 +299,15 @@ const App: React.FC = () => {
 
   const handleConfirmReport = async (reason: string, detail: string) => {
     if (!user || !reportTargetId) return;
-    
-    // Friends 혹은 Feeds 어디든 id가 있을 수 있으므로 범용적으로 처리하거나, 
-    // 현재는 Friends(Profiles) 대상으로 먼저 처리
     const friendRef = doc(db, "friends", reportTargetId);
     const feedRef = doc(db, "Feeds", reportTargetId);
-    
     let targetRef = friendRef;
     let friendDoc = await getDoc(friendRef);
     if (!friendDoc.exists()) {
         targetRef = feedRef;
         friendDoc = await getDoc(feedRef);
     }
-    
     if (!friendDoc.exists()) return;
-    
     const reports = friendDoc.data().reports || [];
     const alreadyReported = reports.some((r: any) => r.reporterId === user.uid);
     if (alreadyReported) {
@@ -331,7 +315,6 @@ const App: React.FC = () => {
       setIsReportModalOpen(false);
       return;
     }
-
     try {
       await updateDoc(targetRef, {
         reports: arrayUnion({
@@ -344,11 +327,7 @@ const App: React.FC = () => {
         reportsCount: increment(1)
       });
       showToast("신고가 접수되었습니다. 누적 3회 시 해당 카드는 검토를 위해 임시 숨김 처리됩니다.");
-    } catch (e) {
-      alert("신고 접수 중 오류 발생");
-    } finally {
-      setIsReportModalOpen(false);
-    }
+    } catch (e) { alert("신고 접수 중 오류 발생"); } finally { setIsReportModalOpen(false); }
   };
 
   const handleAdminCleanFriend = async (id: string) => {
@@ -374,31 +353,65 @@ const App: React.FC = () => {
     }
   };
 
-  const handleReportUser = (targetNickname: string) => {
-    alert(`${targetNickname}님에 대한 신고가 접수되었습니다. 관리자 검토 후 조치하겠습니다.`);
-  };
-
   // Discord Handlers
   const submitDiscordRequest = async () => {
     if (!discordData.name || !discordData.link) return alert("필수 항목을 입력해주세요.");
     if (!user) return alert("로그인이 필요합니다.");
     try {
-      await addDoc(collection(db, "discord_requests"), { ...discordData, userId: user.uid, userEmail: user.email, applicantNickname: nickname, createdAt: serverTimestamp() });
-      showToast("신청 완료! 관리자 승인 후 리스트에 나타납니다."); setIsDiscordModalOpen(false); setDiscordData({ name: '', link: '', desc: '' });
+      await addDoc(collection(db, "discord_servers"), { 
+        ...discordData, 
+        userId: user.uid, 
+        userEmail: user.email, 
+        applicantNickname: nickname, 
+        likes: [], 
+        likesCount: 0,
+        status: 'pending',
+        createdAt: serverTimestamp() 
+      });
+      showToast("신청 완료! 관리자 승인 후 리스트에 나타납니다."); 
+      setIsDiscordModalOpen(false); 
+      setDiscordData({ name: '', link: '', desc: '', imageUrl: '' });
     } catch (e) { alert("신청 제출 실패"); }
   };
 
-  const approveDiscord = async (req: DiscordItem) => {
+  const approveDiscord = async (reqId: string, rank?: number) => {
+    if (!isAdmin) return;
     try {
-      const { id, ...data } = req;
-      await addDoc(collection(db, "discord_servers"), { ...data, createdAt: serverTimestamp() });
-      await deleteDoc(doc(db, "discord_requests", id));
+      const updates: any = { status: 'approved' };
+      if (rank !== undefined) {
+        updates.rank = rank;
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        updates.rankExpiredAt = Timestamp.fromDate(expiryDate);
+      }
+      await updateDoc(doc(db, "discord_servers", reqId), updates);
       showToast("서버 승인이 완료되었습니다!");
     } catch (e) { alert("승인 처리 중 오류 발생"); }
   };
 
   const rejectDiscord = async (id: string) => {
-    try { await deleteDoc(doc(db, "discord_requests", id)); showToast("신청이 거절되었습니다."); } catch (e) { alert("거절 처리 실패"); }
+    if (!isAdmin) return;
+    if (!window.confirm("정말로 신청을 거절하고 삭제하시겠습니까?")) return;
+    try { await deleteDoc(doc(db, "discord_servers", id)); showToast("신청이 거절되었습니다."); } catch (e) { alert("거절 처리 실패"); }
+  };
+
+  const deleteDiscord = async (id: string) => {
+    if (!isAdmin) return;
+    if (!window.confirm("정말로 이 홍보물을 삭제하시겠습니까?")) return;
+    try { await deleteDoc(doc(db, "discord_servers", id)); showToast("홍보물이 삭제되었습니다."); } catch (e) { alert("삭제 실패"); }
+  };
+
+  const handleLikeDiscord = async (id: string) => {
+    if (!user) return alert("로그인이 필요합니다.");
+    const discordRef = doc(db, "discord_servers", id);
+    const discordDoc = await getDoc(discordRef);
+    if (!discordDoc.exists()) return;
+    const likes = discordDoc.data().likes || [];
+    if (likes.includes(user.uid)) {
+      await updateDoc(discordRef, { likes: arrayRemove(user.uid), likesCount: increment(-1) });
+    } else {
+      await updateDoc(discordRef, { likes: arrayUnion(user.uid), likesCount: increment(1) });
+    }
   };
 
   // Studio Handlers
@@ -417,7 +430,6 @@ const App: React.FC = () => {
     if (isText && textId) {
       setSelectedTextId(textId);
       const layer = textLayers.find(l => l.id === textId);
-      // Fix: Direct property access on TextLayer (no 'val' property)
       if (layer) frameDragRef.current = { isDragging: true, startX: clientX, startY: clientY, initialX: 0, initialY: 0, initialPropX: layer.x, initialPropY: layer.y };
     } else {
       frameDragRef.current = { isDragging: true, startX: clientX, startY: clientY, initialX: crop.x, initialY: crop.y, initialPropX: 0, initialPropY: 0 };
@@ -535,6 +547,8 @@ const App: React.FC = () => {
               onOpenDiscordModal={() => setIsDiscordModalOpen(true)} 
               onApproveDiscord={approveDiscord} 
               onRejectDiscord={rejectDiscord}
+              onDeleteDiscord={deleteDiscord}
+              onLikeDiscord={handleLikeDiscord}
               onReportUser={handleOpenReport}
               onDeleteFriend={handleDeleteFriend}
               onLikeFriend={handleLikeFriend}

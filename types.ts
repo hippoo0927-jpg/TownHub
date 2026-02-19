@@ -39,19 +39,18 @@ export interface PixelData {
   palette: ColorInfo[];
 }
 
-// GeneratedImage represents the output of the generation and conversion process
+// Added GeneratedImage interface to support history and preview functionality in ArtCanvas and HistoryBar
 export interface GeneratedImage {
   id: string;
   url: string;
   pixelUrl?: string;
   prompt: string;
-  config: {
-    aspectRatio: AspectRatio;
-    model: StudioModel;
-    imageSize: ImageSize;
-    pixelDensity: PixelDensity;
-  };
   palette?: ColorInfo[];
+  config: {
+    pixelDensity?: number;
+    aspectRatio?: AspectRatio;
+    model?: StudioModel;
+  };
 }
 
 export interface FeedItem {
@@ -74,6 +73,23 @@ export interface FeedItem {
   views: number;
   isEditorPick: boolean;
   isNotice: boolean;
+  createdAt?: any;
+}
+
+export interface DiscordItem {
+  id: string;
+  name: string;
+  link: string;
+  desc: string;
+  imageUrl?: string;
+  likes: string[];
+  likesCount: number;
+  rank?: number; // 1~10
+  rankExpiredAt?: any;
+  status: 'pending' | 'approved';
+  userId?: string;
+  userEmail?: string;
+  applicantNickname?: string;
   createdAt?: any;
 }
 
