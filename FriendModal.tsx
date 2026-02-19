@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 interface FriendModalProps {
   isOpen: boolean;
@@ -32,7 +31,7 @@ const FriendModal: React.FC<FriendModalProps> = ({ isOpen, onClose, formData, se
       return;
     }
 
-    // 용량 제한 (예: 5MB)
+    // 용량 제한 (5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert("파일 크기는 5MB 이하여야 합니다.");
       return;
@@ -40,17 +39,28 @@ const FriendModal: React.FC<FriendModalProps> = ({ isOpen, onClose, formData, se
 
     try {
       setIsUploading(true);
-      const storage = getStorage();
-      const storageRef = ref(storage, `profiles/${Date.now()}_${file.name}`);
       
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      const formDataCloudinary = new FormData();
+      formDataCloudinary.append('file', file);
+      formDataCloudinary.append('upload_preset', 'town_hub_preset');
+
+      const response = await fetch('https://api.cloudinary.com/v1_1/duhiasxcm/image/upload', {
+        method: 'POST',
+        body: formDataCloudinary,
+      });
+
+      if (!response.ok) {
+        throw new Error('Cloudinary upload failed');
+      }
+
+      const data = await response.json();
+      const downloadURL = data.secure_url;
       
       setFormData({ ...formData, imageURL: downloadURL });
       alert("이미지 업로드 완료!");
     } catch (error) {
       console.error("Upload error:", error);
-      alert("이미지 업로드 중 오류가 발생했습니다.");
+      alert("이미지 업로드 중 오류가 발생했습니다. (외부 서버 연결 확인 필요)");
     } finally {
       setIsUploading(false);
     }

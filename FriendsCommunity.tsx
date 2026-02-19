@@ -26,6 +26,7 @@ interface FriendsCommunityProps {
   user: any;
   isAdmin: boolean;
   friendsList: FriendItem[];
+  lastFriendReg: any;
   pendingDiscords: DiscordItem[];
   approvedDiscords: DiscordItem[];
   onOpenFriendModal: () => void;
@@ -44,6 +45,7 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
     user, 
     isAdmin, 
     friendsList,
+    lastFriendReg,
     pendingDiscords, 
     approvedDiscords, 
     onOpenFriendModal, 
@@ -57,6 +59,17 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
 
   const [activeTab, setActiveTab] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const cooldownDays = useMemo(() => {
+    if (!user || isAdmin || !lastFriendReg) return 0;
+    const last = lastFriendReg.toDate ? lastFriendReg.toDate() : new Date(lastFriendReg);
+    const diff = new Date().getTime() - last.getTime();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    if (diff < sevenDays) {
+      return Math.ceil((sevenDays - diff) / (24 * 60 * 60 * 1000));
+    }
+    return 0;
+  }, [user, isAdmin, lastFriendReg]);
 
   const filteredFriends = useMemo(() => {
     return friendsList
@@ -96,7 +109,16 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
                 onChange={e => setSearchQuery(e.target.value)}
                 className="flex-1 md:w-64 p-3 bg-slate-800 border border-slate-700 rounded-xl text-sm text-white outline-none focus:ring-2 ring-pink-500"
               />
-              <button onClick={() => user ? onOpenFriendModal() : alert("로그인이 필요합니다.")} className="px-6 py-3 bg-[#EC4899] text-white rounded-xl font-black hover:scale-105 transition-all shadow-lg text-sm whitespace-nowrap">등록</button>
+              <button 
+                onClick={() => {
+                  if (!user) return alert("로그인이 필요합니다.");
+                  if (cooldownDays > 0) return alert(`프로필 카드는 1주일에 한 번만 등록 가능합니다. 차기 등록 가능일: ${new Date(lastFriendReg.toDate ? lastFriendReg.toDate().getTime() : new Date(lastFriendReg).getTime() + 7 * 24 * 3600 * 1000).toLocaleDateString()}`);
+                  onOpenFriendModal();
+                }} 
+                className={`px-6 py-3 text-white rounded-xl font-black transition-all shadow-lg text-sm whitespace-nowrap ${cooldownDays > 0 ? 'bg-slate-700 cursor-not-allowed grayscale' : 'bg-[#EC4899] hover:scale-105 active:scale-95'}`}
+              >
+                {cooldownDays > 0 ? `${cooldownDays}일 후 등록 가능` : '등록'}
+              </button>
             </div>
           </div>
 
@@ -121,7 +143,7 @@ const FriendsCommunity: React.FC<FriendsCommunityProps> = (props) => {
                   const hasLiked = user && friend.likes?.includes(user.uid);
                   
                   return (
-                    <div key={friend.id} className={`bg-black/40 border rounded-[32px] p-6 flex flex-col md:flex-row gap-6 transition-all relative group overflow-hidden ${isPopular ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-slate-800 hover:border-pink-500/20'}`}>
+                    <div key={friend.id} className={`bg-black/40 border rounded-[32px] p-6 flex flex-col md:flex-row gap-6 transition-all relative group overflow-hidden ${isPopular ? 'border-yellow-500/30 bg-yellow-500/5 shadow-[0_0_30px_rgba(234,179,8,0.05)]' : 'border-slate-800 hover:border-pink-500/20'}`}>
                       {/* 카드 좌측: 이미지 및 ID */}
                       <div className="w-full md:w-40 flex flex-col gap-3 shrink-0">
                          <div className="aspect-[3/4] rounded-2xl bg-slate-800 overflow-hidden border border-slate-700 relative">
