@@ -576,7 +576,16 @@ const App: React.FC = () => {
         <div className="bg-slate-900 border border-slate-800 rounded-[48px] p-10 max-w-md w-full text-center">
           <h3 className="text-3xl font-black text-white mb-6 italic">WELCOME!</h3>
           <p className="text-slate-400 mb-8">사용하실 닉네임을 설정해주세요.</p>
-          <input type="text" value={tempNickname} onChange={(e) => setTempNickname(e.target.value)} className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500" placeholder="닉네임 입력 (최대 10자)" maxLength={10} />
+          <input 
+  key="nick" 
+  autoFocus 
+  type="text" 
+  value={tempNickname} 
+  onChange={(e) => setTempNickname(e.target.value)} 
+  className="w-full p-5 bg-slate-800 rounded-2xl text-white font-bold mb-6 outline-none focus:ring-2 ring-pink-500" 
+  placeholder="닉네임 입력 (최대 10자)" 
+  maxLength={10} 
+/>
           <button onClick={saveNickname} className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black hover:bg-pink-600 transition-all">시작하기</button>
         </div>
       </div>
@@ -951,15 +960,16 @@ const App: React.FC = () => {
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Server Name</label>
-              <input className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="서버 이름을 입력하세요" value={discordData.name} onChange={(e) => setDiscordData({...discordData, name: e.target.value})} />
+              <input key="ds-name" 
+  autoFocus className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="서버 이름을 입력하세요" value={discordData.name} onChange={(e) => setDiscordData({...discordData, name: e.target.value})} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Invite Link</label>
-              <input className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="https://discord.gg/..." value={discordData.link} onChange={(e) => setDiscordData({...discordData, link: e.target.value})} />
+              <input key="ds-link" className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm outline-none focus:ring-2 ring-indigo-500 border border-slate-700" placeholder="https://discord.gg/..." value={discordData.link} onChange={(e) => setDiscordData({...discordData, link: e.target.value})} />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Description</label>
-              <textarea className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500 border border-slate-700 resize-none" placeholder="간단한 서버 소개" value={discordData.desc} onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}></textarea>
+              <textarea key="ds-desc" className="w-full p-4 bg-slate-800 rounded-2xl text-white text-sm h-24 outline-none focus:ring-2 ring-indigo-500 border border-slate-700 resize-none" placeholder="간단한 서버 소개" value={discordData.desc} onChange={(e) => setDiscordData({...discordData, desc: e.target.value})}></textarea>
             </div>
           </div>
           <div className="flex gap-4 mt-8">
