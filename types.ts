@@ -1,4 +1,3 @@
-
 export type AppStep = 'MODE_SELECT' | 'SETUP' | 'UPLOAD' | 'FRAME' | 'TEXT' | 'EDITOR';
 export type StudioMode = 'PATTERN' | 'BOOK_COVER';
 
@@ -53,6 +52,28 @@ export interface GeneratedImage {
     pixelDensity: PixelDensity;
   };
   palette?: ColorInfo[];
+}
+
+export interface FeedItem {
+  id: string;
+  title: string;
+  content: string;
+  mediaUrls: string[];
+  mediaType: 'image' | 'video' | 'none';
+  category: string;
+  tags: string[];
+  authorId: string;
+  authorEmail: string;
+  authorNickname: string;
+  authorTitle: string;
+  authorRole: string;
+  likes: string[];
+  likesCount: number;
+  reports: any[];
+  reportsCount: number;
+  views: number;
+  isEditorPick: boolean;
+  createdAt?: any;
 }
 
 export const TOWN_PALETTE_DATA: Record<string, [number, number, number]> = {
