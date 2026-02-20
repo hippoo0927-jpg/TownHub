@@ -7,11 +7,15 @@ import {
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
   signInWithEmailLink,
-  updatePassword
+  updatePassword,
+  onAuthStateChanged,
+  signOut,
+  User
 } from "firebase/auth";
 import { 
   getFirestore, 
   doc, 
+  getDoc,
   setDoc, 
   serverTimestamp, 
   collection, 
@@ -29,7 +33,7 @@ interface AuthSystemProps {
   onSuccess: (msg: string) => void;
 }
 
-// --- Sub-components (Moved outside to fix focus bug) ---
+// --- Sub-components (Defined outside to fix focus bug) ---
 
 /**
  * Login View Component
@@ -332,11 +336,13 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
   const auth = getAuth();
   const db = getFirestore();
 
-  // --- Email Link Detection ---
+  // --- 1. Email Link Detection & Auto Sign-in ---
   useEffect(() => {
     const handleEmailLink = async () => {
       if (isSignInWithEmailLink(auth, window.location.href)) {
+        // Retrieve email from localStorage to avoid prompt
         let storedEmail = window.localStorage.getItem('emailForSignIn');
+        
         if (!storedEmail) {
           storedEmail = window.prompt('인증을 완료하려면 이메일을 다시 입력해주세요.');
         }
@@ -364,7 +370,26 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
     handleEmailLink();
   }, [auth, onSuccess]);
 
-  // Reset states when modal closes or mode changes
+  // --- 2. Incomplete Signup Prevention (Forced Sign-out) ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
+      if (user) {
+        // Check if user document exists in Firestore
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        
+        // If user is authenticated but no Firestore doc exists,
+        // and they are NOT in the middle of the signup process (isEmailVerified is false),
+        // then they are in an "incomplete" state and should be signed out.
+        if (!userDoc.exists() && !isEmailVerified) {
+          console.log("Incomplete signup detected. Signing out.");
+          await signOut(auth);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [auth, db, isEmailVerified]);
+
+  // Reset states when modal closes
   useEffect(() => {
     if (!isOpen) {
       setEmail('');
@@ -440,7 +465,10 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
       };
       
       await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      
+      // Save email to localStorage as requested
       window.localStorage.setItem('emailForSignIn', email);
+      
       setIsEmailLinkSent(true);
       alert("인증 메일이 발송되었습니다. 메일함의 링크를 클릭하여 인증을 완료해주세요.");
     } catch (error: any) {
@@ -481,7 +509,7 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
 
     setIsLoading(true);
     try {
-      // User is already signed in via Email Link
+      // User is already signed in via Email Link at this point
       const user = auth.currentUser;
       if (!user) throw new Error("인증 세션이 만료되었습니다. 다시 시도해주세요.");
 
