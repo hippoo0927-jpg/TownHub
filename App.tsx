@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User } from "firebase/auth";
+import { getAuth, signOut, onAuthStateChanged, User } from "firebase/auth";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, getDoc, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, increment, where, getDocs, Timestamp } from "firebase/firestore";
 import { AppStep, PixelData, StudioMode, TextLayer, DiscordItem } from './types';
 import { processArtStudioPixel } from './services/pixelService';
@@ -18,6 +18,7 @@ import FriendModal from './FriendModal';
 import ReportModal from './ReportModal';
 import PolicyModal from './PolicyModal';
 import UpdateLogsModal from './UpdateLogsModal';
+import AuthSystem from './AuthSystem';
 
 type MainView = 'HOME' | 'STUDIO' | 'DESIGN_FEED' | 'FRIENDS_COMMUNITY';
 type PolicyType = 'TERMS' | 'PRIVACY' | 'DISCLAIMER' | null;
@@ -46,19 +47,18 @@ interface FriendItem {
 }
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDbsuXM1MEH5T-IQ97wIvObXp5yC68_TYw",
+  authDomain: "town-hub0927.firebaseapp.com",
+  projectId: "town-hub0927",
+  storageBucket: "town-hub0927.firebasestorage.app",
+  messagingSenderId: "329581279235",
+  appId: "1:329581279235:web:1337185e104498ad483636",
+  measurementId: "G-D0DMJSHCLZ"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
 const adminEmails = ["hippoo0927@gmail.com"]; 
 
 const App: React.FC = () => {
@@ -72,6 +72,7 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<MainView>('HOME');
 
   // Modal States
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isNicknameModalOpen, setIsNicknameModalOpen] = useState(false);
   const [tempNickname, setTempNickname] = useState('');
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
@@ -139,8 +140,9 @@ const App: React.FC = () => {
           setNickname(data.nickname);
           setUserTitle(data.title || '일반 시민');
           setLastFriendReg(data.lastFriendReg || null);
-        } else {
-          setIsNicknameModalOpen(true);
+        } else if (currentUser.displayName) {
+          // 회원가입 직후 displayName이 있는 경우 자동 연동
+          setNickname(currentUser.displayName);
         }
       } else {
         setIsAdmin(false);
@@ -203,7 +205,7 @@ const App: React.FC = () => {
   }, []);
 
   // Handlers
-  const handleLogin = async () => { try { await signInWithPopup(auth, provider); } catch (error) { alert("로그인에 실패했습니다."); } };
+  const handleLogin = () => setIsAuthModalOpen(true);
   const handleLogout = () => signOut(auth);
 
   const saveNickname = async () => {
@@ -574,6 +576,11 @@ const App: React.FC = () => {
       <NicknameModal isOpen={isNicknameModalOpen} value={tempNickname} onChange={setTempNickname} onSave={saveNickname} />
       <PolicyModal activePolicy={activePolicy} onClose={() => setActivePolicy(null)} />
       <UpdateLogsModal isOpen={isLogsModalOpen} onClose={() => setIsLogsModalOpen(false)} logs={updateLogs} />
+      <AuthSystem 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
+        onSuccess={(msg) => showToast(msg)} 
+      />
     </div>
   );
 };

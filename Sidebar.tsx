@@ -60,15 +60,15 @@ const Sidebar: React.FC<SidebarProps> = ({ user, nickname, activeView, setActive
       {user ? (
         <div className="flex items-center gap-5 p-4 bg-slate-900/40 rounded-[28px] border border-slate-800/50">
           <div className="w-14 h-14 rounded-2xl bg-slate-800 overflow-hidden ring-2 ring-pink-500/30">
-            <img src={user.photoURL || ""} alt="Profile" className="w-full h-full object-cover" />
+            <img src={user.photoURL || "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=2080&auto=format&fit=crop"} alt="Profile" className="w-full h-full object-cover" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-black text-sm italic truncate">{nickname || user.displayName}</p>
+            <p className="text-white font-black text-sm italic truncate">{nickname || user.displayName || user.email?.split('@')[0]}</p>
             <button onClick={handleLogout} className="text-[#F472B6] font-black text-[10px] uppercase hover:text-white transition-colors">Logout</button>
           </div>
         </div>
       ) : (
-        <button onClick={handleLogin} className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-[#EC4899] hover:text-white transition-all">Login with Google</button>
+        <button onClick={handleLogin} className="w-full py-4 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-[#EC4899] hover:text-white transition-all">Login / Register</button>
       )}
       <button onClick={() => window.open('https://www.youtube.com/@Hippoo_Hanuu', '_blank')} className="w-full py-4 bg-[#EF4444] text-white rounded-2xl font-black text-xs uppercase tracking-tight shadow-xl hover:bg-red-600 transition-all">YouTube 구독하기</button>
       <BmcButton />
