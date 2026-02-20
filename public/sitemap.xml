@@ -5,4 +5,10 @@
     <lastmod>2026-02-20</lastmod>
     <priority>1.0</priority>
   </url>
+
+  <url>
+    <loc>https://town-hub.vercel.app/privacy.html</loc>
+    <lastmod>2026-02-20</lastmod>
+    <priority>0.5</priority>
+  </url>
 </urlset>
