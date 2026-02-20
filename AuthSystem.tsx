@@ -428,7 +428,7 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
     if (!email) return;
     setIsLoading(true);
     try {
-      // 1. Check if email exists in Firestore
+      // 1. 가입 여부 확인
       const q = query(collection(db, "users"), where("email", "==", email));
       const querySnapshot = await getDocs(q);
       
@@ -438,35 +438,36 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
         return;
       }
 
-      // 2. Generate 6-digit OTP
+      // 2. 6자리 OTP 생성 및 Firestore 저장
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      // 3. Store in Firestore verification_codes
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5분 유효
       await setDoc(doc(db, "verification_codes", email), {
         email,
         code,
         expiresAt: Timestamp.fromDate(expiresAt)
       });
 
-      // 4. Send Email via EmailJS
+      // 3. ★ EmailJS 초기화 (Vercel 환경 변수 읽기)
+      emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
+
       const templateParams = {
         to_email: email,
-        otp_code: code,
+        otp_code: code, // EmailJS 템플릿의 {{otp_code}}와 이름이 같아야 함
       };
 
+      // 4. 메일 발송
       await emailjs.send(
         import.meta.env.VITE_EMAILJS_SERVICE_ID,
         import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-        templateParams,
-        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+        templateParams
       );
 
       setIsOtpSent(true);
       alert("인증 코드가 발송되었습니다. 메일을 확인해주세요.");
     } catch (error: any) {
-      console.error(error);
-      alert("이메일 발송 중 오류가 발생했습니다. 환경 변수 설정을 확인해주세요.");
+      // 에러의 구체적인 내용을 콘솔에 출력 (디버깅용)
+      console.error("EmailJS 발송 에러 상세:", error);
+      alert("이메일 발송 실패: " + (error.text || "환경 변수나 EmailJS 설정을 확인하세요."));
     } finally {
       setIsLoading(false);
     }
