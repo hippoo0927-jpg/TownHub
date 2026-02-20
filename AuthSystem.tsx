@@ -447,16 +447,26 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
         expiresAt: Timestamp.fromDate(expiresAt)
       });
 
-      // 3. ★ EmailJS 초기화 (Vercel 환경 변수 읽기)
+      // 3. EmailJS 초기화 및 전송 준비
       emailjs.init(import.meta.env.VITE_EMAILJS_PUBLIC_KEY);
 
+      // ★ 이 부분을 더 명확하게 수정합니다.
       const templateParams = {
-        to_email: email,
-        otp_code: code, // EmailJS 템플릿의 {{otp_code}}와 이름이 같아야 함
+        to_email: email.trim(), // 공백을 제거하고 현재 email 상태값을 넣음
+        otp_code: code,
       };
 
+      // 로그를 찍어봅니다 (디버깅용)
+      console.log("받는 사람 주소 확인:", templateParams.to_email);
+
+      if (!templateParams.to_email) {
+        alert("이메일 주소가 입력되지 않았습니다.");
+        setIsLoading(false);
+        return;
+      }
+
       // 4. 메일 발송
-      await emailjs.send(
+      const result = await emailjs.send(
         import.meta.env.VITE_EMAILJS_SERVICE_ID,
         import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
         templateParams
