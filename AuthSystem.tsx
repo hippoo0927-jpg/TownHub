@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import emailjs from 'emailjs-com';
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
   updateProfile,
   sendPasswordResetEmail,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-  updatePassword,
   onAuthStateChanged,
   signOut,
   User
@@ -21,7 +19,9 @@ import {
   collection, 
   query, 
   where, 
-  getDocs 
+  getDocs,
+  deleteDoc,
+  Timestamp
 } from "firebase/firestore";
 
 // --- Types ---
@@ -97,36 +97,39 @@ const LoginView: React.FC<{
 );
 
 /**
- * Signup View Component
+ * Signup View Component (OTP System)
  */
 const SignupView: React.FC<{
   email: string;
   setEmail: (val: string) => void;
+  otp: string;
+  setOtp: (val: string) => void;
   password: string;
   setPassword: (val: string) => void;
   passwordConfirm: string;
   setPasswordConfirm: (val: string) => void;
   nickname: string;
   setNickname: (val: string) => void;
-  isEmailLinkSent: boolean;
+  isOtpSent: boolean;
   isEmailVerified: boolean;
   isNicknameChecked: boolean;
   agreed: { terms: boolean; privacy: boolean };
   setAgreed: (val: any) => void;
   isLoading: boolean;
-  onSendLink: () => void;
+  onSendOtp: () => void;
+  onVerifyOtp: () => void;
   onCheckNickname: () => void;
   onSignup: (e: React.FormEvent) => void;
   setMode: (mode: AuthMode) => void;
 }> = ({ 
-  email, setEmail, password, setPassword, passwordConfirm, setPasswordConfirm, 
-  nickname, setNickname, isEmailLinkSent, isEmailVerified, isNicknameChecked, 
-  agreed, setAgreed, isLoading, onSendLink, onCheckNickname, onSignup, setMode 
+  email, setEmail, otp, setOtp, password, setPassword, passwordConfirm, setPasswordConfirm, 
+  nickname, setNickname, isOtpSent, isEmailVerified, isNicknameChecked, 
+  agreed, setAgreed, isLoading, onSendOtp, onVerifyOtp, onCheckNickname, onSignup, setMode 
 }) => (
   <form onSubmit={onSignup} className="space-y-5 animate-in fade-in zoom-in-95 duration-300">
     <h2 className="text-3xl font-black italic text-[#EC4899] text-center mb-6 uppercase tracking-tighter">Townhub Join</h2>
     
-    {/* Step 1: Email Verification Link */}
+    {/* Step 1: Email & OTP Request */}
     <div className="space-y-4">
       <div className="flex gap-2">
         <input 
@@ -134,35 +137,44 @@ const SignupView: React.FC<{
           placeholder="이메일 주소" 
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          disabled={isEmailVerified || isEmailLinkSent}
+          disabled={isEmailVerified || isOtpSent}
           className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-2xl outline-none focus:border-[#EC4899] text-white transition-all disabled:opacity-50" 
           required
         />
-        {!isEmailVerified && !isEmailLinkSent && (
+        {!isEmailVerified && !isOtpSent && (
           <button 
             type="button"
-            onClick={onSendLink}
+            onClick={onSendOtp}
             disabled={isLoading || !email}
             className="bg-slate-700 px-4 rounded-2xl font-bold text-xs hover:bg-slate-600 transition-colors disabled:opacity-50"
           >
-            인증 요청
+            인증 코드 발송
           </button>
         )}
       </div>
 
-      {isEmailLinkSent && !isEmailVerified && (
-        <div className="p-4 bg-slate-800/50 border border-slate-700 rounded-2xl text-center animate-in slide-in-from-top-2 duration-300">
-          <p className="text-xs text-slate-300 leading-relaxed">
-            인증 메일이 발송되었습니다.<br/>
-            메일함의 링크를 클릭하여 인증을 완료해주세요.
-          </p>
-          <button 
-            type="button" 
-            onClick={onSendLink}
-            className="mt-2 text-[10px] text-[#EC4899] underline hover:text-white transition-colors"
-          >
-            메일이 오지 않았나요? 다시 보내기
-          </button>
+      {isOtpSent && !isEmailVerified && (
+        <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+          <div className="flex gap-2">
+            <input 
+              type="text" 
+              placeholder="인증 코드 6자리" 
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              className="flex-1 bg-slate-800 border border-slate-700 p-4 rounded-2xl outline-none focus:border-[#EC4899] text-white transition-all" 
+              maxLength={6}
+              required
+            />
+            <button 
+              type="button"
+              onClick={onVerifyOtp}
+              disabled={isLoading || otp.length !== 6}
+              className="bg-[#EC4899] px-6 rounded-2xl font-bold text-xs text-white hover:bg-[#DB2777] transition-colors disabled:opacity-50"
+            >
+              확인
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-500 text-center">메일이 오지 않았다면 스팸함을 확인해주세요.</p>
         </div>
       )}
 
@@ -322,6 +334,7 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
   
   // Form States
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [nickname, setNickname] = useState('');
@@ -329,48 +342,14 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
   
   // Logic States
   const [isLoading, setIsLoading] = useState(false);
-  const [isEmailLinkSent, setIsEmailLinkSent] = useState(false);
+  const [isOtpSent, setIsOtpSent] = useState(false);
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [isNicknameChecked, setIsNicknameChecked] = useState(false);
 
   const auth = getAuth();
   const db = getFirestore();
 
-  // --- 1. Email Link Detection & Auto Sign-in ---
-  useEffect(() => {
-    const handleEmailLink = async () => {
-      if (isSignInWithEmailLink(auth, window.location.href)) {
-        // Retrieve email from localStorage to avoid prompt
-        let storedEmail = window.localStorage.getItem('emailForSignIn');
-        
-        if (!storedEmail) {
-          storedEmail = window.prompt('인증을 완료하려면 이메일을 다시 입력해주세요.');
-        }
-        
-        if (storedEmail) {
-          setIsLoading(true);
-          try {
-            await signInWithEmailLink(auth, storedEmail, window.location.href);
-            window.localStorage.removeItem('emailForSignIn');
-            
-            // Successfully signed in via link
-            setEmail(storedEmail);
-            setIsEmailVerified(true);
-            setMode('SIGNUP');
-            onSuccess("이메일 인증이 완료되었습니다. 나머지 정보를 입력해주세요.");
-          } catch (error: any) {
-            console.error(error);
-            alert("인증 링크가 만료되었거나 유효하지 않습니다.");
-          } finally {
-            setIsLoading(false);
-          }
-        }
-      }
-    };
-    handleEmailLink();
-  }, [auth, onSuccess]);
-
-  // --- 2. Incomplete Signup Prevention (Forced Sign-out) ---
+  // --- Incomplete Signup Prevention (Forced Sign-out) ---
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
       if (user) {
@@ -393,12 +372,13 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
   useEffect(() => {
     if (!isOpen) {
       setEmail('');
+      setOtp('');
       setPassword('');
       setPasswordConfirm('');
       setNickname('');
       setAgreed({ terms: false, privacy: false });
       setIsEmailVerified(false);
-      setIsEmailLinkSent(false);
+      setIsOtpSent(false);
       setIsNicknameChecked(false);
       setMode('LOGIN');
     }
@@ -444,7 +424,7 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
     }
   };
 
-  const handleSendLink = async () => {
+  const handleSendOtp = async () => {
     if (!email) return;
     setIsLoading(true);
     try {
@@ -458,22 +438,66 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
         return;
       }
 
-      // 2. Send Sign-in Link
-      const actionCodeSettings = {
-        url: window.location.origin,
-        handleCodeInApp: true,
+      // 2. Generate 6-digit OTP
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // 3. Store in Firestore verification_codes
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes expiry
+      await setDoc(doc(db, "verification_codes", email), {
+        email,
+        code,
+        expiresAt: Timestamp.fromDate(expiresAt)
+      });
+
+      // 4. Send Email via EmailJS
+      const templateParams = {
+        to_email: email,
+        otp_code: code,
       };
-      
-      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-      
-      // Save email to localStorage as requested
-      window.localStorage.setItem('emailForSignIn', email);
-      
-      setIsEmailLinkSent(true);
-      alert("인증 메일이 발송되었습니다. 메일함의 링크를 클릭하여 인증을 완료해주세요.");
+
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+        templateParams,
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+      );
+
+      setIsOtpSent(true);
+      alert("인증 코드가 발송되었습니다. 메일을 확인해주세요.");
     } catch (error: any) {
       console.error(error);
-      alert("이메일 발송 중 오류가 발생했습니다: " + error.message);
+      alert("이메일 발송 중 오류가 발생했습니다. 환경 변수 설정을 확인해주세요.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otp || otp.length !== 6) return;
+    setIsLoading(true);
+    try {
+      const codeDoc = await getDoc(doc(db, "verification_codes", email));
+      if (!codeDoc.exists()) {
+        alert("인증 정보가 없습니다. 다시 발송해주세요.");
+        return;
+      }
+
+      const data = codeDoc.data();
+      const now = Timestamp.now();
+
+      if (data.code === otp && data.expiresAt.toMillis() > now.toMillis()) {
+        setIsEmailVerified(true);
+        // Delete the code after verification
+        await deleteDoc(doc(db, "verification_codes", email));
+        alert("이메일 인증이 완료되었습니다.");
+      } else if (data.expiresAt.toMillis() <= now.toMillis()) {
+        alert("인증 코드가 만료되었습니다. 다시 발송해주세요.");
+      } else {
+        alert("인증 코드가 일치하지 않습니다.");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("인증 확인 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
@@ -509,12 +533,9 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
 
     setIsLoading(true);
     try {
-      // User is already signed in via Email Link at this point
-      const user = auth.currentUser;
-      if (!user) throw new Error("인증 세션이 만료되었습니다. 다시 시도해주세요.");
-
-      // 1. Set Password
-      await updatePassword(user, password);
+      // 1. Create User with Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
 
       // 2. Update Profile
       await updateProfile(user, { displayName: nickname });
@@ -559,15 +580,17 @@ const AuthSystem: React.FC<AuthSystemProps> = ({ isOpen, onClose, onSuccess }) =
         {mode === 'SIGNUP' && (
           <SignupView 
             email={email} setEmail={setEmail}
+            otp={otp} setOtp={setOtp}
             password={password} setPassword={setPassword}
             passwordConfirm={passwordConfirm} setPasswordConfirm={setPasswordConfirm}
             nickname={nickname} setNickname={setNickname}
-            isEmailLinkSent={isEmailLinkSent}
+            isOtpSent={isOtpSent}
             isEmailVerified={isEmailVerified}
             isNicknameChecked={isNicknameChecked}
             agreed={agreed} setAgreed={setAgreed}
             isLoading={isLoading}
-            onSendLink={handleSendLink}
+            onSendOtp={handleSendOtp}
+            onVerifyOtp={handleVerifyOtp}
             onCheckNickname={handleCheckNickname}
             onSignup={handleSignup}
             setMode={setMode}
