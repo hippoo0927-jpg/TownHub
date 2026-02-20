@@ -11,4 +11,15 @@
     <lastmod>2026-02-20</lastmod>
     <priority>0.5</priority>
   </url>
+  
+  <url>
+    <loc>https://town-hub.vercel.app/terms.html</loc>
+    <priority>0.3</priority>
+  </url>
+  
+  <url>
+    <loc>https://town-hub.vercel.app/disclaimer.html</loc>
+    <priority>0.3</priority>
+  </url>
+  
 </urlset>
